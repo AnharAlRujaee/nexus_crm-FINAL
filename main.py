@@ -94,12 +94,12 @@ class CRMWindow(QMainWindow):
         if key == self._current_key:
             return
         page = self.pages[key]
-        old_depth = self.DEPTH.get(self._current_key, 0)
+        old_depth = self.DEPTH.get(self._current_key, 0) if self._current_key is not None else 0
         direction = 1 if self.DEPTH[key] >= old_depth else -1
 
         self.bg.set_accent(page.accent)
         page.on_enter()
-        self.stack.go(key, direction, animate, QColor(page.accent))
+        self.stack.go(key, direction, animate, page.accent)
         self._current_key = key
 
     def home_key(self):
