@@ -1,9 +1,9 @@
 """Page 1 - Login."""
 
 from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QHBoxLayout, QLineEdit, QVBoxLayout, QWidget
 
-from auth_service import AuthError, authenticate
+from auth_service import AuthError, authenticate          # NEW: Users.xlsx backend
 from ui.base_page import BasePage
 from ui.theme import ACCENTS, BAD, OK, TEXT, TEXT_DIM, TEXT_FAINT
 from ui.widgets import (
@@ -131,6 +131,7 @@ class LoginPage(BasePage):
             self.card.flash(BAD)
             return
 
+        # NEW: verify against Users.xlsx
         try:
             result = authenticate(user, pw)
         except AuthError as exc:
@@ -152,4 +153,5 @@ class LoginPage(BasePage):
     def _enter(self, result):
         self.set_message("", BAD)
         self.sign_in.setEnabled(True)
+        # role comes from the "Role" column in Users.xlsx, not from the username
         self.nav.login(result.username, result.is_admin)
