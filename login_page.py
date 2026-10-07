@@ -64,8 +64,7 @@ class LoginPage(BasePage):
         form.addSpacing(10)
 
         self.username = NeonLineEdit("Username", "user", accent)
-        self.password = NeonLineEdit("Password", "lock", accent)
-        self.password.setEchoMode(QLineEdit.EchoMode.Password)
+        self.password = NeonLineEdit("Password", "lock", accent, password=True)
         form.addWidget(self.username)
         form.addWidget(self.password)
 

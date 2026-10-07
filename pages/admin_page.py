@@ -37,7 +37,7 @@ class AdminPage(BasePage):
         pl.addWidget(make_label("CALENDAR RECORDS", 12, self.accent, True, 2.6, mono=True))
         self.table = QTableWidget(0, len(self.HEADERS))
         self.table.setHorizontalHeaderLabels(self.HEADERS)
-        style_table(self.table)
+        style_table(self.table, stretch=True)
         pl.addWidget(self.table, 1)
         pl.addWidget(make_label(
             "NO CALENDAR RECORDS LOADED \u2014 CALENDAR SYNC ARRIVES IN A LATER STAGE",

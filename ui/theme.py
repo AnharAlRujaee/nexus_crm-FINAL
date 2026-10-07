@@ -129,25 +129,30 @@ QComboBox QAbstractItemView {{
 }}
 
 QTableWidget {{
-    background: transparent;
-    alternate-background-color: rgba(255, 255, 255, 7);
+    background: rgba(6, 10, 26, 90);
+    alternate-background-color: rgba(255, 255, 255, 9);
     color: {TEXT};
     border: none;
-    gridline-color: rgba(110, 140, 230, 28);
+    gridline-color: rgba(110, 140, 230, 36);
     selection-background-color: rgba(120, 160, 255, 60);
     selection-color: white;
-    font-size: 13px;
+    font-size: 12px;
     outline: none;
 }}
-QTableWidget::item {{ padding: 6px 10px; border: none; }}
-QTableWidget::item:hover {{ background: rgba(255, 255, 255, 12); }}
+QTableWidget::item {{
+    padding: 7px 12px;
+    border: none;
+    border-bottom: 1px solid rgba(110, 140, 230, 18);
+}}
+QTableWidget::item:hover {{ background: rgba(255, 255, 255, 14); }}
 QHeaderView {{ background: transparent; }}
 QHeaderView::section {{
-    background: rgba(120, 150, 255, 22);
-    color: #9FB6E8;
+    background: rgba(16, 26, 58, 230);
+    color: #C5D4F5;
     border: none;
-    border-bottom: 1px solid rgba(110, 140, 230, 90);
-    padding: 12px 10px;
+    border-right: 1px solid rgba(110, 140, 230, 40);
+    border-bottom: 1px solid rgba(140, 170, 255, 110);
+    padding: 10px 12px;
     font-size: 11px;
     font-weight: 700;
 }}

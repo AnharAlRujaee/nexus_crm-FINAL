@@ -169,6 +169,21 @@ def _cross_circle(p, c):
     _line(p, 15.5, 8.5, 8.5, 15.5)
 
 
+def _eye(p, c):
+    path = QPainterPath()
+    path.moveTo(3.5, 12)
+    path.quadTo(12, 4.5, 20.5, 12)
+    path.quadTo(12, 19.5, 3.5, 12)
+    p.drawPath(path)
+    p.drawEllipse(QPointF(12, 12), 3.1, 3.1)
+    _dot(p, c, 12, 12, 1.15)
+
+
+def _eye_off(p, c):
+    _eye(p, c)
+    _line(p, 5, 19, 19, 5)
+
+
 _ICONS = {
     "apps": _apps,
     "mentor": _mentor,
@@ -189,6 +204,8 @@ _ICONS = {
     "list": _list,
     "check": _check_circle,
     "cross": _cross_circle,
+    "eye": _eye,
+    "eye_off": _eye_off,
 }
 
 

@@ -1,46 +1,42 @@
-"""Page 5 - Mentor Interview."""
+"""Page 5 - Mentor Interview (loaded from data/Mentor.xlsx)."""
 
 from PyQt6.QtWidgets import QHBoxLayout, QVBoxLayout
 
+from data_service import load_mentor, load_mentor_recommendations, name_matches
 from ui.base_page import BasePage
-from ui.theme import ACCENTS, TEXT, TEXT_DIM
+from ui.theme import ACCENTS, TEXT_DIM
 from ui.widgets import (
-    GlassPanel, NeonButton, NeonComboBox, NeonLineEdit, PageHeader, StatusChip, WaveWidget,
+    DataTable, GlassPanel, NeonButton, NeonComboBox, NeonLineEdit, PageHeader, StatusChip,
     make_label,
 )
 
 
 class MentorInterviewPage(BasePage):
-    CATEGORIES = [
-        "All categories", "Initial contact", "Mentor meeting",
-        "Follow-up", "Project discussion", "Needs review",
-    ]
-
     def __init__(self, nav):
         super().__init__(nav, ACCENTS["mentor"], "mentor", "MENTOR INTERVIEW")
+        self.table_data = None
+        self.recommendations = []
 
         header = PageHeader(
             "mentor", "Module 02", "Mentor Interview",
-            "Review conversations and filter them by category.", self.accent)
-        header.add_chip(StatusChip("UI PREVIEW", self.accent))
+            "Search conversations and filter by recommendation from Mentor.xlsx.", self.accent)
+        header.add_chip(StatusChip("LIVE DATA", self.accent))
         self.root.addWidget(header)
         self.reveal(header)
 
-        # search
         search_panel = GlassPanel(self.accent, radius=16)
         sl = QHBoxLayout(search_panel)
         sl.setContentsMargins(14, 6, 14, 6)
         sl.setSpacing(8)
-        self.search = NeonLineEdit("Search conversations\u2026", "search", self.accent)
+        self.search = NeonLineEdit("Search by candidate name or surname prefix…", "search", self.accent)
         sl.addWidget(self.search, 1)
         search_btn = NeonButton("Search", self.accent, icon="search")
-        search_btn.clicked.connect(self.on_search)
-        self.search.returnPressed.connect(self.on_search)
+        search_btn.clicked.connect(self.refresh)
+        self.search.returnPressed.connect(self.refresh)
         sl.addWidget(search_btn)
         self.root.addWidget(search_panel)
         self.reveal(search_panel)
 
-        # actions: all conversations + category dropdown
         actions = GlassPanel(self.accent, radius=16)
         al = QHBoxLayout(actions)
         al.setContentsMargins(14, 6, 18, 6)
@@ -48,42 +44,71 @@ class MentorInterviewPage(BasePage):
         all_btn = NeonButton("All Conversations", self.accent, icon="list")
         all_btn.clicked.connect(self.on_all)
         al.addWidget(all_btn)
-        al.addWidget(make_label("CATEGORY", 11, TEXT_DIM, True, 2.2, mono=True))
+        al.addWidget(make_label("RECOMMENDATION", 11, TEXT_DIM, True, 2.2, mono=True))
         self.category = NeonComboBox(self.accent)
-        self.category.addItems(self.CATEGORIES)
-        self.category.currentTextChanged.connect(self.on_category)
+        self.category.addItem("All recommendations")
+        self.category.currentTextChanged.connect(self.refresh)
         al.addWidget(self.category, 1)
         self.root.addWidget(actions)
         self.reveal(actions)
 
-        # workspace
-        work = GlassPanel(self.accent, radius=18)
-        wl = QVBoxLayout(work)
-        wl.setContentsMargins(26, 22, 26, 18)
-        wl.setSpacing(6)
-        wl.addWidget(make_label("CONVERSATION WORKSPACE", 11, self.accent, True, 2.6, mono=True))
-        wl.addWidget(make_label("Awaiting conversation data", 20, TEXT, True))
-        wl.addWidget(make_label(
-            "Search and category controls are ready. Conversation records will stream\n"
-            "into this workspace once the data layer is connected in a later stage.",
-            13, TEXT_DIM))
-        wl.addStretch()
-        wl.addWidget(WaveWidget(self.accent))
-        self.root.addWidget(work, 1)
-        self.reveal(work)
+        table_panel = GlassPanel(self.accent, radius=18)
+        tl = QVBoxLayout(table_panel)
+        tl.setContentsMargins(10, 10, 10, 8)
+        tl.setSpacing(6)
+        self.table = DataTable()
+        tl.addWidget(self.table, 1)
+        self.count = make_label("", 11, TEXT_DIM, True, 1.4, mono=True)
+        tl.addWidget(self.count)
+        self.root.addWidget(table_panel, 1)
+        self.reveal(table_panel)
 
         self.add_row([self.back_button()], stretch_end=True)
 
-    def on_search(self):
-        self.nav.toast("Search logic will be connected in a later stage", self.accent)
+    def on_enter(self):
+        super().on_enter()
+        self.reload()
+
+    def reload(self):
+        try:
+            self.table_data = load_mentor()
+            recs = load_mentor_recommendations()
+        except Exception as exc:
+            self.table_data = None
+            self.table.load(["Error"], [[str(exc)]])
+            self.count.setText("COULD NOT LOAD MENTOR.XLSX")
+            return
+        current = self.category.currentText()
+        self.category.blockSignals(True)
+        self.category.clear()
+        self.category.addItem("All recommendations")
+        self.category.addItems(recs)
+        idx = self.category.findText(current)
+        self.category.setCurrentIndex(max(0, idx))
+        self.category.blockSignals(False)
+        self.refresh()
 
     def on_all(self):
         self.search.clear()
         self.category.blockSignals(True)
         self.category.setCurrentIndex(0)
         self.category.blockSignals(False)
-        self.nav.toast("Showing all conversations (preview)", self.accent)
+        self.refresh()
 
-    def on_category(self, text):
-        if self.isVisible():
-            self.nav.toast(f"Category filter: {text}", self.accent)
+    def refresh(self, *_args):
+        if self.table_data is None:
+            return
+        rows = list(self.table_data.rows)
+        rec_i = self.table_data.col("Recommendation")
+        chosen = self.category.currentText()
+        if rec_i is not None and chosen and chosen != "All recommendations":
+            rows = [r for r in rows if r[rec_i] == chosen]
+        query = self.search.text()
+        name_i = self.table_data.name_index()
+        if query.strip():
+            rows = [r for r in rows if name_matches(r[name_i], query)]
+        self.table.load(self.table_data.headers, rows, self.accent)
+        self.count.setText(
+            f"SHOWING {len(rows)} CONVERSATION{'S' if len(rows) != 1 else ''}  ·  "
+            f"{len(self.table_data.rows)} IN MENTOR.XLSX"
+        )

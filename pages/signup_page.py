@@ -8,8 +8,9 @@ import re
 
 from PyQt6.QtCore import QRectF, Qt, QTimer
 from PyQt6.QtGui import QColor, QPainter
-from PyQt6.QtWidgets import QHBoxLayout, QLineEdit, QSizePolicy, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QHBoxLayout, QSizePolicy, QVBoxLayout, QWidget
 
+from auth_service import AuthError, register_user
 from ui.base_page import BasePage
 from ui.theme import ACCENTS, BAD, OK, TEXT, TEXT_DIM, TEXT_FAINT, WARN, flags, qcolor, ui_font
 from ui.widgets import (
@@ -111,10 +112,8 @@ class SignupPage(BasePage):
         self.full_name = NeonLineEdit("Full name", "user", accent)
         self.email = NeonLineEdit("Email address", "mail", accent)
         self.username = NeonLineEdit("Choose a username", "user", accent)
-        self.password = NeonLineEdit("Password (min. 8 characters)", "lock", accent)
-        self.confirm = NeonLineEdit("Confirm password", "lock", accent)
-        for edit in (self.password, self.confirm):
-            edit.setEchoMode(QLineEdit.EchoMode.Password)
+        self.password = NeonLineEdit("Password (min. 8 characters)", "lock", accent, password=True)
+        self.confirm = NeonLineEdit("Confirm password", "lock", accent, password=True)
         for edit in (self.full_name, self.email, self.username):
             form.addWidget(edit)
         form.addWidget(self.password)
@@ -136,7 +135,7 @@ class SignupPage(BasePage):
         back.clicked.connect(lambda: self.nav.go("login"))
         form.addWidget(back)
 
-        form.addWidget(make_label("Preview only \u2014 accounts are not stored yet.", 11, TEXT_FAINT))
+        form.addWidget(make_label("New accounts are stored in Users.xlsx as User role.", 11, TEXT_FAINT))
 
         right.addWidget(self.card)
         right.addStretch()
@@ -185,6 +184,12 @@ class SignupPage(BasePage):
             self.card.flash(BAD)
             return
         user = self.username.text().strip()
+        try:
+            register_user(user, self.password.text(), role="user")
+        except AuthError as exc:
+            self.set_message(f"\u26A0  {exc}", BAD)
+            self.card.flash(BAD)
+            return
         self.set_message("\u2713  ACCOUNT CREATED \u2014 redirecting to login\u2026", OK)
         self.card.flash(OK)
         self.create_btn.setEnabled(False)

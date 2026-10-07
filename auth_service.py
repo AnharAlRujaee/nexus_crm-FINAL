@@ -1,21 +1,18 @@
-"""Login backend: verifies credentials against Users.xlsx using pandas.
+"""Login backend: verifies credentials against data/Users.xlsx using pandas.
 
 Users.xlsx layout (sheet "Users"): Username | Password | Role   (Role = admin / user)
-Put this file next to main.py (or inside crm/) and import it from the login window.
 """
 
 import os
-import sys
 from dataclasses import dataclass
 
 import pandas as pd
 
+from data_service import data_file
+
 
 def users_file_path() -> str:
-    """Users.xlsx next to main.py in dev, next to the .exe when frozen by PyInstaller."""
-    base = os.path.dirname(sys.executable) if getattr(sys, "frozen", False) \
-        else os.path.dirname(os.path.abspath(__file__))
-    return os.path.join(base, "Users.xlsx")
+    return data_file("Users.xlsx")
 
 
 class AuthError(Exception):
@@ -69,3 +66,23 @@ def authenticate(username: str, password: str, path: str | None = None) -> AuthR
         return None
     row = hit.iloc[0]
     return AuthResult(username=row["username"], role=row["role"])
+
+
+def username_exists(username: str, path: str | None = None) -> bool:
+    df = load_users(path)
+    return not df[df["username"].str.lower() == username.strip().lower()].empty
+
+
+def register_user(username: str, password: str, role: str = "user", path: str | None = None) -> None:
+    path = path or users_file_path()
+    username, password = username.strip(), password.strip()
+    if username_exists(username, path):
+        raise AuthError(f"Username '{username}' is already taken.")
+    df = load_users(path)
+    new = pd.DataFrame([{"username": username, "password": password, "role": role.lower()}])
+    out = pd.concat([df, new], ignore_index=True)
+    out.columns = ["Username", "Password", "Role"]
+    try:
+        out.to_excel(path, sheet_name="Users", index=False)
+    except PermissionError as exc:
+        raise AuthError("Users.xlsx is open in another program. Close it and retry.") from exc

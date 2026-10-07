@@ -1,8 +1,9 @@
 """Page 1 - Login."""
 
 from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtWidgets import QHBoxLayout, QLineEdit, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
 
+from auth_service import AuthError, authenticate
 from ui.base_page import BasePage
 from ui.theme import ACCENTS, BAD, OK, TEXT, TEXT_DIM, TEXT_FAINT
 from ui.widgets import (
@@ -63,8 +64,7 @@ class LoginPage(BasePage):
         form.addSpacing(10)
 
         self.username = NeonLineEdit("Username", "user", accent)
-        self.password = NeonLineEdit("Password", "lock", accent)
-        self.password.setEchoMode(QLineEdit.EchoMode.Password)
+        self.password = NeonLineEdit("Password", "lock", accent, password=True)
         form.addWidget(self.username)
         form.addWidget(self.password)
 
@@ -79,7 +79,7 @@ class LoginPage(BasePage):
         form.addWidget(self.sign_in)
 
         form.addWidget(make_label(
-            "Demo access: any username and password.\nUse  admin  as the username to preview Admin mode.",
+            "Authorized accounts only.\nNo account yet? Use Sign up below.",
             11, TEXT_FAINT))
 
         extra = QHBoxLayout()
@@ -131,12 +131,25 @@ class LoginPage(BasePage):
             self.card.flash(BAD)
             return
 
+        try:
+            result = authenticate(user, pw)
+        except AuthError as exc:
+            self.set_message(f"\u26A0  {exc}", BAD)
+            self.card.flash(BAD)
+            return
+        if result is None:
+            self.set_message("\u2717  ACCESS DENIED \u2014 wrong username or password.", BAD)
+            self.card.flash(BAD)
+            self.password.clear()
+            self.password.setFocus()
+            return
+
         self.set_message("\u2713  ACCESS GRANTED \u2014 initializing workspace\u2026", OK)
         self.card.flash(OK)
         self.sign_in.setEnabled(False)
-        QTimer.singleShot(650, lambda: self._enter(user))
+        QTimer.singleShot(650, lambda: self._enter(result))
 
-    def _enter(self, user):
+    def _enter(self, result):
         self.set_message("", BAD)
         self.sign_in.setEnabled(True)
-        self.nav.login(user, user.lower() == "admin")
+        self.nav.login(result.username, result.is_admin)
