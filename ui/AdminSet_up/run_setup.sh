@@ -1,5 +1,5 @@
 #!/bin/bash
-# One-step setup for the Admin page (Google Calendar + email).
+# One-step setup for the Admin page (Google Drive, Calendar + email).
 # Put this file in CRM_FINAL/ui/AdminSet_up/ and run:  bash run_setup.sh
 
 cd "$(dirname "$0")" || exit 1
@@ -42,7 +42,10 @@ else
   read -r -s -p "App Password: " MAIL_PASS
   echo
   MAIL_PASS="${MAIL_PASS// /}"
-  printf 'CRM_SMTP_USER=%s\nCRM_SMTP_PASSWORD=%s\n' "$MAIL_USER" "$MAIL_PASS" > .env
+  TMP_ENV="$(mktemp)"
+  grep -Ev '^CRM_(SMTP_USER|SMTP_PASSWORD|MAIL_FROM)=' .env > "$TMP_ENV"
+  printf 'CRM_SMTP_USER=%s\nCRM_SMTP_PASSWORD=%s\nCRM_MAIL_FROM=%s\n' "$MAIL_USER" "$MAIL_PASS" "$MAIL_USER" >> "$TMP_ENV"
+  mv "$TMP_ENV" .env
   chmod 600 .env
   echo "Created .env"
 fi

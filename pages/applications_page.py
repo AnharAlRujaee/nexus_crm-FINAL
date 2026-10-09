@@ -16,9 +16,14 @@ CENTERED = (
     "Internal Tracking 1", "Internal Tracking 2", "Internal Tracking 3",
 )
 
-
 class ApplicationsPage(BasePage):
-    VIEWS = ["All records", "Duplicates only", "Unique (duplicates removed)"]
+    VIEWS = [
+        "All records", 
+        "Duplicates only", 
+        "Unique (duplicates removed)",
+        "Previous VIT Check (In VIT1/VIT2)",
+        "Different Record (Not in VIT1/VIT2)"
+    ]
 
     def __init__(self, nav):
         super().__init__(nav, ACCENTS["applications"], "applications", "APPLICATIONS")
@@ -27,11 +32,12 @@ class ApplicationsPage(BasePage):
         self.error = ""
         self.dup_flags, self.first_flags = [], []
         self.i_name = self.i_email = self.i_mentor = -1
+        self.i_vit1 = self.i_vit2 = -1
 
         header = PageHeader(
             "apps", "Module 01", "Application pipeline",
             "Search, filter and review every application record.", self.accent)
-        header.add_chip(StatusChip("EXCEL DATA", self.accent))
+        header.add_chip(StatusChip("GOOGLE DRIVE SYNC", self.accent))
         self.root.addWidget(header)
         self.reveal(header)
 
@@ -49,11 +55,13 @@ class ApplicationsPage(BasePage):
         sl.addWidget(search_btn)
         sl.addSpacing(10)
         sl.addWidget(make_label("RECORDS", 11, TEXT_DIM, True, 2.2, mono=True))
+        
         self.view = NeonComboBox(self.accent)
         self.view.addItems(self.VIEWS)
-        self.view.setMinimumWidth(270)
+        self.view.setMinimumWidth(330)
         self.view.currentIndexChanged.connect(lambda _i: self.refresh())
         sl.addWidget(self.view)
+        
         self.root.addWidget(search_panel)
         self.reveal(search_panel)
 
@@ -78,11 +86,9 @@ class ApplicationsPage(BasePage):
         self.reveal(panel)
 
         self.add_row([self.back_button()], stretch_end=True)
-        self.reload()
 
-    # ------------------------------------------------------------------
     def on_enter(self):
-        self.reload()                       # pick up any edits made to the workbook
+        self.reload()
         super().on_enter()
 
     def reload(self):
@@ -92,11 +98,21 @@ class ApplicationsPage(BasePage):
         except DataError as exc:
             self.table_data = Table([], [])
             self.error = str(exc)
+            
         t = self.table_data
         self.i_name = t.index("Full Name")
         self.i_email = t.index("Email")
         self.i_mentor = t.index("Mentor Meeting")
-        self.dup_flags, self.first_flags = filters.duplicate_flags(t.rows, self.i_name, self.i_email)
+        
+        self.i_vit1 = t.index("VIT1") if t.index("VIT1") >= 0 else t.index("VIT 1")
+        self.i_vit2 = t.index("VIT2") if t.index("VIT2") >= 0 else t.index("VIT 2")
+
+        if hasattr(filters, "duplicate_flags"):
+            self.dup_flags, self.first_flags = filters.duplicate_flags(t.rows, self.i_name, self.i_email)
+        else:
+            self.dup_flags = [False] * len(t.rows)
+            self.first_flags = [True] * len(t.rows)
+
         self.refresh()
 
     def set_mode(self, mode):
@@ -108,6 +124,16 @@ class ApplicationsPage(BasePage):
     def _has_meeting(self, row):
         value = row[self.i_mentor] if self.i_mentor >= 0 else None
         return value is not None and str(value).strip().upper() == "OK"
+        
+    def _is_in_vit(self, row):
+        in_vit1 = in_vit2 = False
+        if self.i_vit1 >= 0:
+            val1 = row[self.i_vit1]
+            in_vit1 = val1 is not None and str(val1).strip() != ""
+        if self.i_vit2 >= 0:
+            val2 = row[self.i_vit2]
+            in_vit2 = val2 is not None and str(val2).strip() != ""
+        return in_vit1 or in_vit2
 
     def refresh(self):
         t = self.table_data
@@ -120,13 +146,24 @@ class ApplicationsPage(BasePage):
                 continue
             if self.mode == "not_defined" and self._has_meeting(row):
                 continue
-            if view == 1 and not self.dup_flags[i]:
+                
+            if view == 1 and not self.dup_flags[i]: 
                 continue
             if view == 2 and not self.first_flags[i]:
                 continue
-            name = row[self.i_name] if self.i_name >= 0 else None
-            if query.strip() and not filters.name_matches(query, name):
+            if view == 3 and not self._is_in_vit(row):
                 continue
+            if view == 4 and self._is_in_vit(row):
+                continue
+                
+            name = row[self.i_name] if self.i_name >= 0 else None
+            if hasattr(filters, "name_matches"):
+                if query.strip() and not filters.name_matches(query, name):
+                    continue
+            else:
+                if query.strip() and query.casefold() not in str(name).casefold():
+                    continue
+                    
             shown.append(i)
 
         self.table.set_data(

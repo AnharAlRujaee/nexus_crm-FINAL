@@ -23,7 +23,7 @@ class InterviewsPage(BasePage):
         header = PageHeader(
             "interviews", "Module 03", "Interviews",
             "Track the project exchange stages.", self.accent)
-        header.add_chip(StatusChip("EXCEL DATA", self.accent))
+        header.add_chip(StatusChip("ONEDRIVE SYNC", self.accent))
         self.root.addWidget(header)
         self.reveal(header)
 
