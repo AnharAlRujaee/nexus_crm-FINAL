@@ -12,9 +12,8 @@ from PyQt6.QtGui import (
     QPen, QRadialGradient,
 )
 from PyQt6.QtWidgets import (
-    QAbstractItemView, QComboBox, QFrame, QGraphicsOpacityEffect, QHBoxLayout, QHeaderView,
-    QLabel, QLineEdit, QPushButton, QSizePolicy, QTableWidget, QTableWidgetItem, QVBoxLayout,
-    QWidget,
+    QAbstractButton, QAbstractItemView, QComboBox, QFrame, QGraphicsOpacityEffect, QHBoxLayout, QHeaderView,
+    QLabel, QLineEdit, QPushButton, QSizePolicy, QTableWidget, QVBoxLayout, QWidget,
 )
 
 from ui.icons import draw_icon
@@ -632,6 +631,45 @@ class PageHeader(GlassPanel):
 # ---------------------------------------------------------------------------
 # Inputs
 # ---------------------------------------------------------------------------
+class EyeButton(QAbstractButton):
+    """Show / hide toggle that sits inside a password field.
+
+    Unchecked = password hidden (open eye: click to reveal).
+    Checked   = password visible (slashed eye: click to hide).
+    """
+
+    def __init__(self, accent, parent=None):
+        super().__init__(parent)
+        self._accent = QColor(accent)
+        self._hover = False
+        self.setCheckable(True)
+        self.setFixedSize(32, 32)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setFocusPolicy(Qt.FocusPolicy.NoFocus)   # keep the caret in the text field
+        self.setToolTip("Show password")
+
+    def enterEvent(self, event):
+        self._hover = True
+        self.update()
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        self._hover = False
+        self.update()
+        super().leaveEvent(event)
+
+    def paintEvent(self, _event):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        lit = self.isChecked() or self._hover
+        if self._hover:
+            p.setPen(Qt.PenStyle.NoPen)
+            p.setBrush(qcolor(self._accent, 34))
+            p.drawEllipse(QRectF(self.rect()).adjusted(2, 2, -2, -2))
+        color = self._accent if lit else QColor(TEXT_DIM)
+        draw_icon(p, "eye_off" if self.isChecked() else "eye", QRectF(6, 6, 20, 20), color, 1.8)
+
+
 class NeonLineEdit(QLineEdit):
     def __init__(self, placeholder, icon, accent, parent=None, password=False):
         super().__init__(parent)
@@ -639,17 +677,38 @@ class NeonLineEdit(QLineEdit):
         self._icon = icon
         self._accent = QColor(accent)
         self._focus = 0.0
-        self._password = bool(password)
-        self._revealed = False
+        self._eye = None
+
+        padding = ""
+        if icon:
+            padding += "padding-left: 46px;"
         if password:
+            padding += " padding-right: 50px;"
             self.setEchoMode(QLineEdit.EchoMode.Password)
-            self.setMouseTracking(True)
-        pad_left = 46 if icon else 14
-        pad_right = 42 if password else 14
-        self.setStyleSheet(f"padding-left: {pad_left}px; padding-right: {pad_right}px;")
+            self._eye = EyeButton(accent, self)
+            self._eye.toggled.connect(self._on_eye_toggled)
+        if padding:
+            self.setStyleSheet(padding)
+
         self._anim = QPropertyAnimation(self, b"focusT", self)
         self._anim.setDuration(260)
         self._anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+
+    # -- password reveal ---------------------------------------------------
+    def _on_eye_toggled(self, shown):
+        self.setEchoMode(QLineEdit.EchoMode.Normal if shown else QLineEdit.EchoMode.Password)
+        self._eye.setToolTip("Hide password" if shown else "Show password")
+
+    def set_revealed(self, shown):
+        """Programmatically show / hide the text (no-op for ordinary fields)."""
+        if self._eye is not None:
+            self._eye.setChecked(bool(shown))
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if self._eye is not None:
+            self._eye.move(self.width() - self._eye.width() - 10,
+                           (self.height() - self._eye.height()) // 2)
 
     def _get_focus(self):
         return self._focus
@@ -674,31 +733,6 @@ class NeonLineEdit(QLineEdit):
         self._animate(0.0)
         super().focusOutEvent(event)
 
-    def _eye_rect(self) -> QRectF:
-        return QRectF(self.width() - 36, (self.height() - 18) / 2.0, 18, 18)
-
-    def _toggle_password(self):
-        self._revealed = not self._revealed
-        self.setEchoMode(
-            QLineEdit.EchoMode.Normal if self._revealed else QLineEdit.EchoMode.Password
-        )
-        self.update()
-
-    def mouseMoveEvent(self, event):
-        if self._password:
-            over = self._eye_rect().adjusted(-6, -6, 6, 6).contains(event.position())
-            self.setCursor(
-                Qt.CursorShape.PointingHandCursor if over else Qt.CursorShape.IBeamCursor
-            )
-        super().mouseMoveEvent(event)
-
-    def mousePressEvent(self, event):
-        if self._password and self._eye_rect().adjusted(-6, -6, 6, 6).contains(event.position()):
-            self._toggle_password()
-            event.accept()
-            return
-        super().mousePressEvent(event)
-
     def paintEvent(self, event):
         super().paintEvent(event)
         p = QPainter(self)
@@ -707,9 +741,6 @@ class NeonLineEdit(QLineEdit):
         if self._icon:
             col = mix(TEXT_FAINT, self._accent, f)
             draw_icon(p, self._icon, QRectF(16, (self.height() - 18) / 2.0, 18, 18), col, 1.9)
-        if self._password:
-            eye = "eye" if self._revealed else "eye_off"
-            draw_icon(p, eye, self._eye_rect(), mix(TEXT_FAINT, self._accent, max(f, 0.35)), 1.8)
         if f > 0.01:
             half = (self.width() - 30) / 2.0 * f
             y = self.height() - 1.5
@@ -740,67 +771,20 @@ class NeonComboBox(QComboBox):
         p.drawPath(path)
 
 
-def style_table(table: QTableWidget, stretch: bool = False) -> None:
-    """Glass data table: full headers stay readable, columns scroll instead of clipping."""
+def style_table(table: QTableWidget) -> None:
+    """Common behaviour for the glass data tables."""
     table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
     table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
     table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
     table.setAlternatingRowColors(True)
-    table.setShowGrid(True)
-    table.setWordWrap(False)
-    table.setTextElideMode(Qt.TextElideMode.ElideRight)
-    table.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
-    table.setHorizontalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
-    table.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
-    table.setCornerButtonEnabled(False)
+    table.setShowGrid(False)
+    table.setFocusPolicy(Qt.FocusPolicy.NoFocus)
     table.verticalHeader().setVisible(False)
-    table.verticalHeader().setDefaultSectionSize(42)
-    header = table.horizontalHeader()
-    header.setHighlightSections(False)
-    header.setMinimumSectionSize(96)
-    header.setDefaultAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-    header.setFixedHeight(46)
-    header.setStretchLastSection(stretch)
-    mode = QHeaderView.ResizeMode.Stretch if stretch else QHeaderView.ResizeMode.Interactive
-    header.setSectionResizeMode(mode)
+    table.verticalHeader().setDefaultSectionSize(46)
+    table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+    table.horizontalHeader().setHighlightSections(False)
     table.setFrameShape(QFrame.Shape.NoFrame)
     table.viewport().setAutoFillBackground(False)
-
-
-def fill_table(table: QTableWidget, headers: list[str], rows: list[list], accent: str | None = None) -> None:
-    """Replace table contents, keeping Excel column order and even row height."""
-    sorting = table.isSortingEnabled()
-    table.setSortingEnabled(False)
-    table.clear()
-    table.setColumnCount(len(headers))
-    table.setHorizontalHeaderLabels(headers)
-    table.setRowCount(len(rows))
-    faint = QColor(TEXT_FAINT)
-    text = QColor(TEXT)
-    for r, row in enumerate(rows):
-        for c, raw in enumerate(row):
-            value = "" if raw is None else str(raw).strip()
-            empty = not value
-            item = QTableWidgetItem("—" if empty else value)
-            item.setForeground(QBrush(faint if empty else text))
-            item.setTextAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-            if not empty and len(value) > 42:
-                item.setToolTip(value)
-            table.setItem(r, c, item)
-    table.resizeColumnsToContents()
-    for i in range(table.columnCount()):
-        width = table.columnWidth(i)
-        table.setColumnWidth(i, min(max(width + 18, 108), 260))
-    table.setSortingEnabled(sorting)
-
-
-class DataTable(QTableWidget):
-    def __init__(self, parent=None, stretch=False):
-        super().__init__(0, 0, parent)
-        style_table(self, stretch=stretch)
-
-    def load(self, headers, rows, accent=None):
-        fill_table(self, headers, rows, accent)
 
 
 # ---------------------------------------------------------------------------

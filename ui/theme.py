@@ -129,33 +129,33 @@ QComboBox QAbstractItemView {{
 }}
 
 QTableWidget {{
-    background: rgba(6, 10, 26, 90);
-    alternate-background-color: rgba(255, 255, 255, 9);
+    background: transparent;
+    alternate-background-color: rgba(255, 255, 255, 6);
     color: {TEXT};
     border: none;
-    gridline-color: rgba(110, 140, 230, 36);
+    gridline-color: rgba(110, 140, 230, 28);
     selection-background-color: rgba(120, 160, 255, 60);
     selection-color: white;
-    font-size: 12px;
+    font-size: 13px;
     outline: none;
 }}
 QTableWidget::item {{
-    padding: 7px 12px;
+    padding: 0px 12px;
     border: none;
-    border-bottom: 1px solid rgba(110, 140, 230, 18);
+    border-bottom: 1px solid rgba(110, 140, 230, 22);
 }}
-QTableWidget::item:hover {{ background: rgba(255, 255, 255, 14); }}
+QTableWidget::item:hover {{ background: rgba(255, 255, 255, 13); }}
 QHeaderView {{ background: transparent; }}
 QHeaderView::section {{
-    background: rgba(16, 26, 58, 230);
-    color: #C5D4F5;
+    background: rgba(120, 150, 255, 20);
+    color: #9FB6E8;
     border: none;
-    border-right: 1px solid rgba(110, 140, 230, 40);
-    border-bottom: 1px solid rgba(140, 170, 255, 110);
-    padding: 10px 12px;
+    border-bottom: 1px solid rgba(110, 140, 230, 110);
+    padding: 0px 12px;
     font-size: 11px;
     font-weight: 700;
 }}
+QHeaderView::section:hover {{ background: rgba(120, 150, 255, 38); }}
 QTableCornerButton::section {{ background: transparent; border: none; }}
 
 QScrollBar:vertical {{ background: transparent; width: 10px; margin: 2px; }}

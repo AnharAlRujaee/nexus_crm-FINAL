@@ -1,4 +1,4 @@
-"""Sign Up page (UI only - accounts are not stored yet).
+"""Sign Up page - new accounts are saved to data/Users.xlsx as regular users.
 
 Reached from the "Sign up" button on the Login card. On success it returns
 to Login with the new username pre-filled.
@@ -10,7 +10,8 @@ from PyQt6.QtCore import QRectF, Qt, QTimer
 from PyQt6.QtGui import QColor, QPainter
 from PyQt6.QtWidgets import QHBoxLayout, QSizePolicy, QVBoxLayout, QWidget
 
-from auth_service import AuthError, register_user
+from core.data_store import DataError, register_user
+
 from ui.base_page import BasePage
 from ui.theme import ACCENTS, BAD, OK, TEXT, TEXT_DIM, TEXT_FAINT, WARN, flags, qcolor, ui_font
 from ui.widgets import (
@@ -135,7 +136,7 @@ class SignupPage(BasePage):
         back.clicked.connect(lambda: self.nav.go("login"))
         form.addWidget(back)
 
-        form.addWidget(make_label("New accounts are stored in Users.xlsx as User role.", 11, TEXT_FAINT))
+        form.addWidget(make_label("New accounts are saved to the Users file as regular users.", 11, TEXT_FAINT))
 
         right.addWidget(self.card)
         right.addStretch()
@@ -152,6 +153,8 @@ class SignupPage(BasePage):
     def reset(self):
         for edit in (self.full_name, self.email, self.username, self.password, self.confirm):
             edit.clear()
+        self.password.set_revealed(False)
+        self.confirm.set_revealed(False)
         self.set_message("", BAD)
         self.create_btn.setEnabled(True)
 
@@ -185,9 +188,9 @@ class SignupPage(BasePage):
             return
         user = self.username.text().strip()
         try:
-            register_user(user, self.password.text(), role="user")
-        except AuthError as exc:
-            self.set_message(f"\u26A0  {exc}", BAD)
+            register_user(user, self.password.text())
+        except DataError as exc:
+            self.set_message("\u26A0  " + str(exc), BAD)
             self.card.flash(BAD)
             return
         self.set_message("\u2713  ACCOUNT CREATED \u2014 redirecting to login\u2026", OK)

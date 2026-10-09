@@ -114,6 +114,23 @@ def _lock(p, c):
     _dot(p, c, 12, 16, 1.3)
 
 
+def _eye(p, c):
+    path = QPainterPath()
+    path.moveTo(2, 12)
+    path.cubicTo(5, 6.5, 8.5, 5, 12, 5)
+    path.cubicTo(15.5, 5, 19, 6.5, 22, 12)
+    path.cubicTo(19, 17.5, 15.5, 19, 12, 19)
+    path.cubicTo(8.5, 19, 5, 17.5, 2, 12)
+    path.closeSubpath()
+    p.drawPath(path)
+    p.drawEllipse(QPointF(12, 12), 3.2, 3.2)
+
+
+def _eye_off(p, c):
+    _eye(p, c)
+    _line(p, 4, 3.5, 20, 20.5)
+
+
 def _hex(p, c):
     outer = QPainterPath()
     inner = QPainterPath()
@@ -169,21 +186,6 @@ def _cross_circle(p, c):
     _line(p, 15.5, 8.5, 8.5, 15.5)
 
 
-def _eye(p, c):
-    path = QPainterPath()
-    path.moveTo(3.5, 12)
-    path.quadTo(12, 4.5, 20.5, 12)
-    path.quadTo(12, 19.5, 3.5, 12)
-    p.drawPath(path)
-    p.drawEllipse(QPointF(12, 12), 3.1, 3.1)
-    _dot(p, c, 12, 12, 1.15)
-
-
-def _eye_off(p, c):
-    _eye(p, c)
-    _line(p, 5, 19, 19, 5)
-
-
 _ICONS = {
     "apps": _apps,
     "mentor": _mentor,
@@ -197,6 +199,8 @@ _ICONS = {
     "power": _power,
     "user": _user,
     "lock": _lock,
+    "eye": _eye,
+    "eye_off": _eye_off,
     "hex": _hex,
     "logout": _logout,
     "upload": _upload,
@@ -204,8 +208,6 @@ _ICONS = {
     "list": _list,
     "check": _check_circle,
     "cross": _cross_circle,
-    "eye": _eye,
-    "eye_off": _eye_off,
 }
 
 

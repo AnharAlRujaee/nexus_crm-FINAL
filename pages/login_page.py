@@ -3,7 +3,8 @@
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
 
-from auth_service import AuthError, authenticate
+from core.data_store import DataError, authenticate
+
 from ui.base_page import BasePage
 from ui.theme import ACCENTS, BAD, OK, TEXT, TEXT_DIM, TEXT_FAINT
 from ui.widgets import (
@@ -64,7 +65,7 @@ class LoginPage(BasePage):
         form.addSpacing(10)
 
         self.username = NeonLineEdit("Username", "user", accent)
-        self.password = NeonLineEdit("Password", "lock", accent, password=True)
+        self.password = NeonLineEdit("Password", "lock", accent, password=True)  # eye icon inside
         form.addWidget(self.username)
         form.addWidget(self.password)
 
@@ -79,7 +80,7 @@ class LoginPage(BasePage):
         form.addWidget(self.sign_in)
 
         form.addWidget(make_label(
-            "Authorized accounts only.\nNo account yet? Use Sign up below.",
+            "Sign in with an account from the Users file.\nNo account yet? Use Sign up below.",
             11, TEXT_FAINT))
 
         extra = QHBoxLayout()
@@ -107,17 +108,20 @@ class LoginPage(BasePage):
     def reset(self):
         self.username.clear()
         self.password.clear()
+        self.password.set_revealed(False)
         self.set_message("", BAD)
         self.sign_in.setEnabled(True)
 
     def on_enter(self):
         super().on_enter()
         self.password.clear()
+        self.password.set_revealed(False)
         (self.password if self.username.text() else self.username).setFocus()
 
     def prefill(self, username):
         self.username.setText(username)
         self.password.clear()
+        self.password.set_revealed(False)
         self.set_message("", BAD)
         self.sign_in.setEnabled(True)
 
@@ -132,24 +136,25 @@ class LoginPage(BasePage):
             return
 
         try:
-            result = authenticate(user, pw)
-        except AuthError as exc:
-            self.set_message(f"\u26A0  {exc}", BAD)
+            account = authenticate(user, pw)
+        except DataError as exc:
+            self.set_message("\u26A0  " + str(exc), BAD)
             self.card.flash(BAD)
             return
-        if result is None:
-            self.set_message("\u2717  ACCESS DENIED \u2014 wrong username or password.", BAD)
+        if account is None:
+            self.set_message("\u26A0  Incorrect username or password.", BAD)
             self.card.flash(BAD)
-            self.password.clear()
+            self.password.selectAll()
             self.password.setFocus()
             return
 
+        name, role = account
         self.set_message("\u2713  ACCESS GRANTED \u2014 initializing workspace\u2026", OK)
         self.card.flash(OK)
         self.sign_in.setEnabled(False)
-        QTimer.singleShot(650, lambda: self._enter(result))
+        QTimer.singleShot(650, lambda: self._enter(name, role == "admin"))
 
-    def _enter(self, result):
+    def _enter(self, user, is_admin):
         self.set_message("", BAD)
         self.sign_in.setEnabled(True)
-        self.nav.login(result.username, result.is_admin)
+        self.nav.login(user, is_admin)

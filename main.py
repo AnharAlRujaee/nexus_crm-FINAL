@@ -1,20 +1,14 @@
-"""NEXUS CRM - futuristic PyQt6 interface (UI-only stage).
+"""NEXUS CRM - PyQt6 interface backed by local Excel workbooks.
 
 Run:
-    pip install PyQt6
+    pip install -r requirements.txt
     python main.py
 
 Project layout:
     main.py                         window controller + navigation
-    ui/                             shared theme, icons, widgets, transitions
-    pages/login_page.py             1. Login
-    pages/signup_page.py            Sign Up (from the Login card)
-    pages/preferences_page.py       2. Preferences (regular user)
-    pages/preferences_admin_page.py 3. Preferences (admin)
-    pages/applications_page.py      4. Applications
-    pages/mentor_page.py            5. Mentor Interview
-    pages/interviews_page.py        6. Interviews
-    pages/admin_page.py             7. Admin Menu
+    core/                           Excel data access and filter helpers
+    ui/                             shared theme, tables, icons, widgets
+    pages/                          application screens
 """
 
 import os

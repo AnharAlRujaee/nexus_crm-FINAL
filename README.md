@@ -1,12 +1,13 @@
 # NEXUS CRM — Futuristic PyQt6 Interface
 
-UI-only stage of the CRM capstone: every window is built, styled, animated and
-fully navigable. No Google Drive / Calendar / email / real search yet.
+CRM capstone: every window is built, styled, animated and navigable, and the
+Applications, Mentor Interview, Interviews and Login pages now run on the real
+Excel workbooks in `data/`. Google Calendar / e-mail (Admin menu) come later.
 
 ## Run
 
 ```bash
-pip install -r requirements.txt     # or: pip install PyQt6
+pip install -r requirements.txt     # PyQt6 + openpyxl
 python main.py
 ```
 
@@ -14,7 +15,11 @@ python main.py
 
 ```
 main.py                          window controller + navigation logic
+core/
+  data_store.py                  reads the .xlsx files (and saves new sign-ups)
+  filters.py                     search / duplicate / category matching
 ui/
+  data_table.py                  sortable, scrollable data table + record dialog
   theme.py                       colours, fonts, global stylesheet
   icons.py                       vector icons drawn in code (no image files)
   background.py                  animated aurora / grid / particle background
@@ -39,17 +44,29 @@ Admins also get Preferences (Admin) → Admin Menu → back.
 Every "Return to Preferences Screen" button sends admins to the Admin
 preferences and everyone else to the regular preferences.
 
-### Sign up
+### Data (`data/`)
 
-Login card → **Sign up** → fill the form (email format, 8+ character password,
-matching confirmation, live strength meter) → returns to Login with the username
-pre-filled. UI preview only: accounts are not stored yet.
+| File | Used by |
+|------|---------|
+| `Users.xlsx` (Username, Password, Role) | Login / Sign up. Role `admin` opens the Admin preferences. |
+| `Applications.xlsx` | Applications - all 27 columns, search, mentor-meeting filters, duplicate views |
+| `Mentor.xlsx` (+ *Mentor Recommendation Options* sheet) | Mentor Interview - search + category dropdown |
+| `Interviews.xlsx` | Interviews - search + Projects Sent / Received |
+
+Edit a workbook, then reopen the page: data is re-read every time a page opens.
+Close Excel before signing up a new user (the file must be writable).
+When packaged as an .exe, keep the `data/` folder next to it.
+
+### Tables
+
+Click a header to sort, drag column edges to resize, scroll sideways for wide
+sheets, hover long text for the full value, double-click a row for every field.
+Search matches the start of a name or surname ("as" finds *Asiye Turan*).
 
 ### Login
 
-- Any non-empty username + password signs in as a normal user.
-- Username `admin` (any non-empty password) previews Admin mode.
-  This is a UI preview only; real authentication comes in a later stage.
+Use an account from `Users.xlsx`. The eye icon in the password field shows or
+hides what you type. Sign up adds a regular `user` account to `Users.xlsx`.
 
 ## Design notes
 
@@ -64,5 +81,5 @@ pre-filled. UI preview only: accounts are not stored yet.
 
 ## Not implemented yet (later stages)
 
-Google Drive, Google Calendar API, real data source, production search/filter
-backend, email sending.
+Google Drive sync, Google Calendar API and email sending (Admin menu), plus the
+VIT1 / VIT2 comparison filters (those workbooks are not in the project yet).

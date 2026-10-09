@@ -1,58 +1,68 @@
-"""Page 4 - Applications (loaded from data/Applications.xlsx)."""
+"""Page 4 - Applications (data from data/Applications.xlsx)."""
 
-from PyQt6.QtWidgets import QHBoxLayout, QVBoxLayout
+from PyQt6.QtWidgets import QHBoxLayout
 
-from data_service import (
-    application_duplicates, load_applications, load_interviews, load_mentor,
-    meeting_identified, previous_vit_rows, unique_applications, different_record_rows,
-)
+from core import filters
+from core.data_store import DataError, Table, load_applications
 from ui.base_page import BasePage
-from ui.theme import ACCENTS, TEXT_DIM
+from ui.data_table import RecordDialog, build_table_panel, set_status
+from ui.theme import ACCENTS, BAD, OK, TEXT_DIM, WARN
 from ui.widgets import (
-    DataTable, GlassPanel, NeonButton, NeonComboBox, NeonLineEdit, PageHeader, StatusChip,
-    make_label,
+    GlassPanel, NeonButton, NeonComboBox, NeonLineEdit, PageHeader, StatusChip, make_label,
+)
+
+CENTERED = (
+    "Application Period", "English Level", "Dutch Level", "Green Check",
+    "Internal Tracking 1", "Internal Tracking 2", "Internal Tracking 3",
 )
 
 
 class ApplicationsPage(BasePage):
-    MORE_VIEWS = [
-        ("Choose extra view…", None),
-        ("Duplicate records", "duplicates"),
-        ("Previous VIT check", "previous_vit"),
-        ("Different records", "different"),
-        ("Unique applications", "unique"),
-    ]
+    VIEWS = ["All records", "Duplicates only", "Unique (duplicates removed)"]
 
     def __init__(self, nav):
         super().__init__(nav, ACCENTS["applications"], "applications", "APPLICATIONS")
         self.mode = "all"
-        self.table_data = None
+        self.table_data = Table([], [])
+        self.error = ""
+        self.dup_flags, self.first_flags = [], []
+        self.i_name = self.i_email = self.i_mentor = -1
 
         header = PageHeader(
             "apps", "Module 01", "Application pipeline",
-            "Search, filter and review every column from Applications.xlsx.", self.accent)
-        header.add_chip(StatusChip("LIVE DATA", self.accent))
+            "Search, filter and review every application record.", self.accent)
+        header.add_chip(StatusChip("EXCEL DATA", self.accent))
         self.root.addWidget(header)
         self.reveal(header)
 
+        # search + record view
         search_panel = GlassPanel(self.accent, radius=16)
         sl = QHBoxLayout(search_panel)
         sl.setContentsMargins(14, 6, 14, 6)
         sl.setSpacing(8)
-        self.search = NeonLineEdit("Search by name or surname prefix (e.g. As)…", "search", self.accent)
+        self.search = NeonLineEdit("Search by name or surname \u2014 e.g. \u201cas\u201d", "search", self.accent)
         sl.addWidget(self.search, 1)
         search_btn = NeonButton("Search", self.accent, icon="search")
-        search_btn.clicked.connect(self.refresh)
-        self.search.returnPressed.connect(self.refresh)
+        search_btn.clicked.connect(lambda: self.refresh())
+        self.search.returnPressed.connect(lambda: self.refresh())
+        self.search.textChanged.connect(lambda _text: self.refresh())
         sl.addWidget(search_btn)
+        sl.addSpacing(10)
+        sl.addWidget(make_label("RECORDS", 11, TEXT_DIM, True, 2.2, mono=True))
+        self.view = NeonComboBox(self.accent)
+        self.view.addItems(self.VIEWS)
+        self.view.setMinimumWidth(270)
+        self.view.currentIndexChanged.connect(lambda _i: self.refresh())
+        sl.addWidget(self.view)
         self.root.addWidget(search_panel)
         self.reveal(search_panel)
 
+        # mentor-meeting filters
         self.filter_buttons = []
         for text, mode, icon in (
             ("All Applications", "all", "list"),
-            ("Mentor Meeting Identified", "defined", "check"),
-            ("Mentor Meeting Not Identified", "not_defined", "cross"),
+            ("Mentor Meeting Defined", "defined", "check"),
+            ("Mentor Meeting Not Defined", "not_defined", "cross"),
         ):
             b = NeonButton(text, self.accent, icon=icon, variant="ghost", height=42)
             b.setCheckable(True)
@@ -61,92 +71,95 @@ class ApplicationsPage(BasePage):
         self.filter_buttons[0][0].setChecked(True)
         self.add_row([b for b, _ in self.filter_buttons], stretch_end=True)
 
-        extra = GlassPanel(self.accent, radius=16)
-        el = QHBoxLayout(extra)
-        el.setContentsMargins(14, 6, 18, 6)
-        el.setSpacing(12)
-        el.addWidget(make_label("MORE VIEWS", 11, TEXT_DIM, True, 2.2, mono=True))
-        self.more = NeonComboBox(self.accent)
-        self.more.addItems([label for label, _ in self.MORE_VIEWS])
-        self.more.currentIndexChanged.connect(self._on_more)
-        el.addWidget(self.more, 1)
-        self.root.addWidget(extra)
-        self.reveal(extra)
-
-        table_panel = GlassPanel(self.accent, radius=18)
-        tl = QVBoxLayout(table_panel)
-        tl.setContentsMargins(10, 10, 10, 8)
-        tl.setSpacing(6)
-        self.table = DataTable()
-        tl.addWidget(self.table, 1)
-        self.count = make_label("", 11, TEXT_DIM, True, 1.4, mono=True)
-        tl.addWidget(self.count)
-        self.root.addWidget(table_panel, 1)
-        self.reveal(table_panel)
+        # table
+        panel, self.table, self.status = build_table_panel(self.accent)
+        self.table.record_activated.connect(self.show_record)
+        self.root.addWidget(panel, 1)
+        self.reveal(panel)
 
         self.add_row([self.back_button()], stretch_end=True)
-
-    def on_enter(self):
-        super().on_enter()
         self.reload()
+
+    # ------------------------------------------------------------------
+    def on_enter(self):
+        self.reload()                       # pick up any edits made to the workbook
+        super().on_enter()
 
     def reload(self):
         try:
             self.table_data = load_applications()
-            self._mentor = load_mentor()
-            self._interviews = load_interviews()
-        except Exception as exc:
-            self.table_data = None
-            self.table.load(["Error"], [[str(exc)]])
-            self.count.setText("COULD NOT LOAD APPLICATIONS.XLSX")
-            return
+            self.error = ""
+        except DataError as exc:
+            self.table_data = Table([], [])
+            self.error = str(exc)
+        t = self.table_data
+        self.i_name = t.index("Full Name")
+        self.i_email = t.index("Email")
+        self.i_mentor = t.index("Mentor Meeting")
+        self.dup_flags, self.first_flags = filters.duplicate_flags(t.rows, self.i_name, self.i_email)
         self.refresh()
 
     def set_mode(self, mode):
         self.mode = mode
         for b, m in self.filter_buttons:
             b.setChecked(m == mode)
-        self.more.blockSignals(True)
-        self.more.setCurrentIndex(0)
-        self.more.blockSignals(False)
         self.refresh()
 
-    def _on_more(self, index):
-        mode = self.MORE_VIEWS[index][1]
-        if mode is None:
-            return
-        self.mode = mode
-        for b, _m in self.filter_buttons:
-            b.setChecked(False)
-        self.refresh()
+    def _has_meeting(self, row):
+        value = row[self.i_mentor] if self.i_mentor >= 0 else None
+        return value is not None and str(value).strip().upper() == "OK"
 
     def refresh(self):
-        if self.table_data is None:
-            return
-        source = self.table_data
-        headers, rows = source.headers, list(source.rows)
-        meet_i = source.col("Mentor Meeting")
-
-        if self.mode == "defined":
-            rows = [r for r in rows if meeting_identified(r[meet_i])]
-        elif self.mode == "not_defined":
-            rows = [r for r in rows if not meeting_identified(r[meet_i])]
-        elif self.mode == "duplicates":
-            rows = application_duplicates(source)
-        elif self.mode == "previous_vit":
-            rows = previous_vit_rows(source, self._mentor, self._interviews)
-        elif self.mode == "different":
-            headers, rows = different_record_rows(self._mentor, self._interviews)
-        elif self.mode == "unique":
-            rows = unique_applications(source)
-
+        t = self.table_data
         query = self.search.text()
-        if query.strip() and headers:
-            name_key = "Full Name" if "Full Name" in headers else headers[0]
-            i = headers.index(name_key)
-            from data_service import name_matches
-            rows = [r for r in rows if name_matches(r[i], query)]
+        view = self.view.currentIndex()
 
-        self.table.load(headers, rows, self.accent)
-        total = len(source.rows)
-        self.count.setText(f"SHOWING {len(rows)} ROW{'S' if len(rows) != 1 else ''}  ·  {total} IN APPLICATIONS.XLSX")
+        shown = []
+        for i, row in enumerate(t.rows):
+            if self.mode == "defined" and not self._has_meeting(row):
+                continue
+            if self.mode == "not_defined" and self._has_meeting(row):
+                continue
+            if view == 1 and not self.dup_flags[i]:
+                continue
+            if view == 2 and not self.first_flags[i]:
+                continue
+            name = row[self.i_name] if self.i_name >= 0 else None
+            if query.strip() and not filters.name_matches(query, name):
+                continue
+            shown.append(i)
+
+        self.table.set_data(
+            t.headers, [t.rows[i] for i in shown], indices=shown,
+            chip_fn=self._chip, center=CENTERED)
+
+        if self.error:
+            set_status(self.status, "\u26A0  " + self.error.upper(), BAD)
+        else:
+            dups = sum(1 for flag in self.dup_flags if flag)
+            set_status(
+                self.status,
+                f"SHOWING {len(shown)} OF {len(t.rows)} APPLICATIONS   \u00B7   "
+                f"{dups} DUPLICATE ROWS   \u00B7   CLICK A HEADER TO SORT   \u00B7   "
+                f"DOUBLE-CLICK A ROW FOR FULL DETAILS")
+
+    def _chip(self, header, value):
+        if value is None:
+            return None
+        text = str(value).strip().upper()
+        if header == "Mentor Meeting":
+            return (text, OK if text == "OK" else WARN)
+        if header == "Processing Status":
+            return (text, OK if text == "DONE" else WARN)
+        if header == "Application Period":
+            return (text, self.accent)
+        return None
+
+    def show_record(self, index):
+        t = self.table_data
+        if not 0 <= index < len(t.rows):
+            return
+        row = t.rows[index]
+        name = row[self.i_name] if self.i_name >= 0 and row[self.i_name] else "Application"
+        RecordDialog("Application record", str(name).title(), t.headers, row,
+                     self.accent, self.window()).exec()

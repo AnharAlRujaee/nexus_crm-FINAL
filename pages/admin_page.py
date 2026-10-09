@@ -1,11 +1,12 @@
 """Page 7 - Admin Menu (admin users only)."""
 
-from PyQt6.QtWidgets import QHBoxLayout, QTableWidget, QVBoxLayout
+from PyQt6.QtWidgets import QHBoxLayout, QVBoxLayout
 
 from ui.base_page import BasePage
+from ui.data_table import DataTable
 from ui.theme import ACCENTS, TEXT, TEXT_FAINT
 from ui.widgets import (
-    GlassPanel, NeonButton, PageHeader, StatusChip, make_label, style_table,
+    GlassPanel, NeonButton, PageHeader, StatusChip, make_label,
 )
 
 
@@ -35,9 +36,8 @@ class AdminPage(BasePage):
         pl.setContentsMargins(18, 16, 18, 12)
         pl.setSpacing(8)
         pl.addWidget(make_label("CALENDAR RECORDS", 12, self.accent, True, 2.6, mono=True))
-        self.table = QTableWidget(0, len(self.HEADERS))
-        self.table.setHorizontalHeaderLabels(self.HEADERS)
-        style_table(self.table, stretch=True)
+        self.table = DataTable(self.accent)
+        self.table.set_data(self.HEADERS, [])
         pl.addWidget(self.table, 1)
         pl.addWidget(make_label(
             "NO CALENDAR RECORDS LOADED \u2014 CALENDAR SYNC ARRIVES IN A LATER STAGE",
