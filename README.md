@@ -49,6 +49,9 @@ preferences and everyone else to the regular preferences.
 
 ### Data (Google Drive)
 
+The CRM data source is the shared [Google Drive data folder](https://drive.google.com/drive/folders/1Z3sSNKIbw4WxjESPou584I3MNWYjMSc1?usp=share_link).
+The default folder ID is `1Z3sSNKIbw4WxjESPou584I3MNWYjMSc1`.
+
 | File | Used by |
 |------|---------|
 | `Users.xlsx` (Username, Password, Role) | Login / Sign up. Role `admin` opens the Admin preferences. |
@@ -56,11 +59,19 @@ preferences and everyone else to the regular preferences.
 | `Mentor.xlsx` (+ *Mentor Recommendation Options* sheet) | Mentor Interview - search + category dropdown |
 | `Interviews.xlsx` | Interviews - search + Projects Sent / Received |
 
-All `.xlsx` and `.xlsm` files in the shared Drive folder and subfolders are
-synced. Data pages check for updates when opened; after login, the app polls
-every 60 seconds and refreshes the visible data page. Changes are also mirrored
-to Google Calendar. Sign Up updates the shared `Users.xlsx`. OAuth setup is in
-[`ui/AdminSet_up/SETUP.md`](ui/AdminSet_up/SETUP.md).
+All `.xlsx` and `.xlsm` files in the folder and its subfolders are checked when
+a data page opens. After login, Drive is polled every 60 seconds; a changed
+workbook refreshes the visible data page and triggers Calendar synchronization.
+Sign Up updates the shared `Users.xlsx`, so the signed-in Google account needs
+edit permission for that file. To use another folder, set
+`CRM_GOOGLE_DRIVE_FOLDER_ID` in `ui/AdminSet_up/.env`.
+
+Drive and Calendar access use Google OAuth, not the account password. Install
+the OAuth desktop-client JSON as `ui/AdminSet_up/credentials.json`, enable both
+Google Drive API and Google Calendar API, and authorize `nexuscrmt@gmail.com`
+(the sign-in hint is configurable with `CRM_GOOGLE_USER`). Never put an account
+password in source code or commit OAuth credentials/token files. See
+[`ui/AdminSet_up/SETUP.md`](ui/AdminSet_up/SETUP.md) for the full setup steps.
 
 ### Tables
 
@@ -75,12 +86,27 @@ shows or hides what you type. Sign up adds a regular `user` account to it.
 
 ### Admin Calendar and Email
 
-Applications submission timestamps, Mentor dates and Interviews project sent /
-received dates create managed Calendar events. Events are updated when workbook
-rows change and removed if their source row is removed. The Admin page loads the
-configured Calendar, allows filtering by event, participant, email or status,
-then opens Mail for the selected attendees. Setup requires Drive and Calendar
-OAuth permissions plus SMTP credentials; see
+Calendar events are generated from these workbook fields:
+
+| Workbook | Source field | Calendar event |
+|----------|--------------|----------------|
+| `Applications.xlsx` | `Applications Timestamp` | Application received |
+| `Mentor.xlsx` (`Mentor` sheet) | `Mentor Date` | Mentor meeting |
+| `Interviews.xlsx` | `Project Sent Date`, `Project Received Date` | Project sent / received |
+
+Rows without a parseable date do not create events. Dated application timestamps
+keep their time; date-only values become all-day events. Events have stable IDs,
+so the app updates them instead of duplicating them. If a source row is removed,
+only the corresponding CRM-managed event is deleted. The Admin page loads the
+same Calendar after syncing, and supports filtering by event, participant,
+email, and status. Contact emails are added to event descriptions and prefilled
+in the Mail composer; email is sent only after an admin confirms in that dialog.
+
+The default target is the primary Calendar of the Google account selected during
+OAuth. The `/u/2/` in a Calendar browser URL is an account slot, not a Calendar
+ID. To target a different calendar, set `CRM_GOOGLE_CALENDAR_ID` to its actual
+Calendar ID. Calendar sync requires Drive and Calendar OAuth permissions; sending
+email additionally requires SMTP credentials. See
 [`ui/AdminSet_up/SETUP.md`](ui/AdminSet_up/SETUP.md). OAuth credentials, tokens,
 and SMTP `.env` settings are local-only and excluded from Git.
 
