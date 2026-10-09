@@ -60,3 +60,50 @@ def same_option(option: str, value) -> bool:
     if not a or not b:
         return False
     return a == b or a.startswith(b) or b.startswith(a)
+
+
+def vit_cohort_names(rows, name_idx: int, group_idx: int):
+    """Map explicit VIT1/VIT2 group labels to normalized candidate names."""
+    cohorts = {"VIT1": set(), "VIT2": set()}
+    if name_idx < 0 or group_idx < 0:
+        return cohorts
+    for row in rows:
+        name = _words(row[name_idx] or "")
+        group = "".join(str(row[group_idx] or "").casefold().split()).replace("-", "").upper()
+        if name and group in cohorts:
+            cohorts[group].add(name)
+    return cohorts
+
+
+def previous_vit_labels(rows, name_idx: int, cohorts: dict) -> list:
+    """Return VIT1/VIT2 membership labels aligned with application rows."""
+    labels = []
+    for row in rows:
+        name = _words(row[name_idx] or "") if name_idx >= 0 else ""
+        hits = [label for label in ("VIT1", "VIT2") if name and name in cohorts.get(label, set())]
+        labels.append(" + ".join(hits))
+    return labels
+
+
+def different_vit_records(rows, name_idx: int, email_idx: int, group_idx: int,
+                          email_by_name=None):
+    """Return unique VIT candidates found in exactly one of VIT1 or VIT2."""
+    cohorts = vit_cohort_names(rows, name_idx, group_idx)
+    exclusive = {
+        "VIT1": cohorts["VIT1"] - cohorts["VIT2"],
+        "VIT2": cohorts["VIT2"] - cohorts["VIT1"],
+    }
+    result, seen = [], set()
+    for row in rows:
+        name = _words(row[name_idx] or "") if name_idx >= 0 else ""
+        if not name or name in seen:
+            continue
+        label = next((cohort for cohort in ("VIT1", "VIT2") if name in exclusive[cohort]), None)
+        if label is None:
+            continue
+        seen.add(name)
+        email = row[email_idx] if email_idx >= 0 else None
+        if not email and email_by_name:
+            email = email_by_name.get(name)
+        result.append([row[name_idx], email, f"{label} only"])
+    return result

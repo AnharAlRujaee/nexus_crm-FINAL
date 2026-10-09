@@ -121,7 +121,12 @@ and SMTP `.env` settings are local-only and excluded from Git.
 - Custom-painted controls with hover halo, shine sweep, pressed state and rounded edges.
 - Everything is vector-drawn, so it is crisp at any display scale.
 
-## Not implemented yet (later stages)
+## VIT1 / VIT2 comparisons
 
-The VIT1 / VIT2 comparison filters need the corresponding VIT workbooks in the
-shared Drive folder.
+The Applications page uses a `VIT History` worksheet inside the existing
+`Mentor.xlsx`; no extra workbook is needed, and VIT cohort rows stay separate
+from mentor conversations. It compares normalized candidate names, shows
+previous VIT membership on application records, and lists people found in only
+one cohort. The current sample history has 5 VIT1 and 4 VIT2 entries. If the
+sheet is absent, the app falls back to `Mentor` rows with explicit VIT1/VIT2
+values in `VIT Group` and warns when those cohorts are unavailable.

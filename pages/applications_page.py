@@ -3,7 +3,7 @@
 from PyQt6.QtWidgets import QHBoxLayout
 
 from core import filters
-from core.data_store import DataError, Table, load_applications
+from core.data_store import DataError, Table, load_applications, load_vit_cohorts
 from ui.base_page import BasePage
 from ui.data_table import RecordDialog, build_table_panel, set_status
 from ui.theme import ACCENTS, BAD, OK, TEXT_DIM, WARN
@@ -32,7 +32,12 @@ class ApplicationsPage(BasePage):
         self.error = ""
         self.dup_flags, self.first_flags = [], []
         self.i_name = self.i_email = self.i_mentor = -1
-        self.i_vit1 = self.i_vit2 = -1
+        self.vit_labels = []
+        self.vit_rows = []
+        self.vit_table = None
+        self.vit_data_error = ""
+        self._shown_headers = []
+        self._shown_rows = []
 
         header = PageHeader(
             "apps", "Module 01", "Application pipeline",
@@ -103,9 +108,31 @@ class ApplicationsPage(BasePage):
         self.i_name = t.index("Full Name")
         self.i_email = t.index("Email")
         self.i_mentor = t.index("Mentor Meeting")
-        
-        self.i_vit1 = t.index("VIT1") if t.index("VIT1") >= 0 else t.index("VIT 1")
-        self.i_vit2 = t.index("VIT2") if t.index("VIT2") >= 0 else t.index("VIT 2")
+
+        self.vit_rows = []
+        self.vit_table = None
+        self.vit_data_error = ""
+        try:
+            mentor = load_vit_cohorts()
+            self.vit_table = mentor
+            i_candidate = mentor.index("Candidate Name")
+            i_group = mentor.index("VIT Group")
+            self.vit_rows = mentor.rows
+            self.vit_labels = filters.previous_vit_labels(
+                t.rows, self.i_name,
+                filters.vit_cohort_names(mentor.rows, i_candidate, i_group),
+            )
+            cohorts = filters.vit_cohort_names(mentor.rows, i_candidate, i_group)
+            if not cohorts["VIT1"] and not cohorts["VIT2"]:
+                found = sorted({str(row[i_group]).strip() for row in mentor.rows
+                                if i_group >= 0 and row[i_group]})
+                groups = ", ".join(found) if found else "none"
+                self.vit_data_error = (
+                    f"Mentor.xlsx has no VIT1/VIT2 candidates (VIT Group values: {groups})"
+                )
+        except DataError as exc:
+            self.vit_data_error = str(exc)
+            self.vit_labels = [""] * len(t.rows)
 
         if hasattr(filters, "duplicate_flags"):
             self.dup_flags, self.first_flags = filters.duplicate_flags(t.rows, self.i_name, self.i_email)
@@ -125,22 +152,47 @@ class ApplicationsPage(BasePage):
         value = row[self.i_mentor] if self.i_mentor >= 0 else None
         return value is not None and str(value).strip().upper() == "OK"
         
-    def _is_in_vit(self, row):
-        in_vit1 = in_vit2 = False
-        if self.i_vit1 >= 0:
-            val1 = row[self.i_vit1]
-            in_vit1 = val1 is not None and str(val1).strip() != ""
-        if self.i_vit2 >= 0:
-            val2 = row[self.i_vit2]
-            in_vit2 = val2 is not None and str(val2).strip() != ""
-        return in_vit1 or in_vit2
-
     def refresh(self):
         t = self.table_data
         query = self.search.text()
         view = self.view.currentIndex()
 
+        if view in (3, 4) and self.vit_data_error:
+            self._shown_headers = list(t.headers)
+            self._shown_rows = []
+            self.table.set_data(self._shown_headers, [])
+            set_status(self.status, "\u26A0  " + self.vit_data_error.upper(), WARN)
+            return
+
         shown = []
+        if view == 4:
+            mentor = self.vit_table
+            if mentor is None:
+                set_status(self.status, "\u26A0  " + self.vit_data_error.upper(), BAD)
+                self.table.set_data([], [])
+                return
+            records = filters.different_vit_records(
+                mentor.rows, mentor.index("Candidate Name"),
+                mentor.index("Email"), mentor.index("VIT Group"),
+                email_by_name={
+                    str(row[self.i_name]).strip().casefold(): row[self.i_email]
+                    for row in self.table_data.rows
+                    if self.i_name >= 0 and self.i_email >= 0
+                    and row[self.i_name] and row[self.i_email]
+                },
+            )
+            records = [row for row in records
+                       if not query.strip() or filters.name_matches(query, row[0])]
+            self._shown_headers = ["Full Name", "Email", "Found Only In"]
+            self._shown_rows = records
+            self.table.set_data(self._shown_headers, records, center=("Found Only In",))
+            set_status(
+                self.status,
+                f"{len(records)} PEOPLE APPEAR IN ONLY ONE OF VIT1 / VIT2   \u00B7   "
+                "SOURCE: MENTOR.XLSX",
+            )
+            return
+
         for i, row in enumerate(t.rows):
             if self.mode == "defined" and not self._has_meeting(row):
                 continue
@@ -151,9 +203,7 @@ class ApplicationsPage(BasePage):
                 continue
             if view == 2 and not self.first_flags[i]:
                 continue
-            if view == 3 and not self._is_in_vit(row):
-                continue
-            if view == 4 and self._is_in_vit(row):
+            if view == 3 and not self.vit_labels[i]:
                 continue
                 
             name = row[self.i_name] if self.i_name >= 0 else None
@@ -166,19 +216,28 @@ class ApplicationsPage(BasePage):
                     
             shown.append(i)
 
+        headers = list(t.headers)
+        rows = [t.rows[i] for i in shown]
+        if view == 3:
+            headers.append("Previous VIT")
+            rows = [row + [self.vit_labels[index]] for index, row in zip(shown, rows)]
+        self._shown_headers = headers
+        self._shown_rows = rows
         self.table.set_data(
-            t.headers, [t.rows[i] for i in shown], indices=shown,
+            headers, rows, indices=shown,
             chip_fn=self._chip, center=CENTERED)
 
         if self.error:
             set_status(self.status, "\u26A0  " + self.error.upper(), BAD)
         else:
             dups = sum(1 for flag in self.dup_flags if flag)
+            note = f"   \u00B7   {self.vit_data_error}" if self.vit_data_error and view not in (3, 4) else ""
             set_status(
                 self.status,
                 f"SHOWING {len(shown)} OF {len(t.rows)} APPLICATIONS   \u00B7   "
                 f"{dups} DUPLICATE ROWS   \u00B7   CLICK A HEADER TO SORT   \u00B7   "
-                f"DOUBLE-CLICK A ROW FOR FULL DETAILS")
+                f"DOUBLE-CLICK A ROW FOR FULL DETAILS" + note,
+                WARN if note else TEXT_DIM)
 
     def _chip(self, header, value):
         if value is None:
@@ -193,6 +252,13 @@ class ApplicationsPage(BasePage):
         return None
 
     def show_record(self, index):
+        if self.view.currentIndex() == 4:
+            if not 0 <= index < len(self._shown_rows):
+                return
+            row = self._shown_rows[index]
+            RecordDialog("VIT comparison record", str(row[0]).title(),
+                         self._shown_headers, row, self.accent, self.window()).exec()
+            return
         t = self.table_data
         if not 0 <= index < len(t.rows):
             return

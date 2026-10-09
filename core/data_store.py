@@ -236,6 +236,16 @@ def load_mentor() -> Table:
     return read_table("Mentor.xlsx", "Mentor")
 
 
+def load_vit_cohorts() -> Table:
+    """Load VIT cohorts from Mentor.xlsx without mixing them into conversations."""
+    try:
+        return read_table("Mentor.xlsx", "VIT History")
+    except DataError as exc:
+        if "has no sheet called 'VIT History'" not in str(exc):
+            raise
+        return load_mentor()
+
+
 def load_mentor_options() -> list:
     """The recommendation options from the 'Mentor Recommendation Options' sheet."""
     table = read_table("Mentor.xlsx", "Mentor Recommendation Options")
