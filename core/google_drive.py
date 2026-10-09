@@ -20,6 +20,7 @@ POLL_INTERVAL_SECONDS = 60
 _lock = threading.RLock()
 _workbooks = {}
 _workbook_versions = {}
+_pending_calendar_sync = False
 
 
 class GoogleAccessError(Exception):
@@ -151,7 +152,7 @@ def _list_workbooks(service):
 
 def sync_workbooks(force=False):
     """Sync all Excel files recursively; only download files whose version changed."""
-    global _workbooks, _workbook_versions
+    global _workbooks, _workbook_versions, _pending_calendar_sync
     with _lock:
         service = _drive_service()
         remote = _list_workbooks(service)
@@ -179,7 +180,17 @@ def sync_workbooks(force=False):
             next_workbooks[key] = content
             next_versions[key] = version
         _workbooks, _workbook_versions = next_workbooks, next_versions
+        _pending_calendar_sync = _pending_calendar_sync or changed
         return changed
+
+
+def consume_calendar_sync_request():
+    """Return and clear whether any caller observed changed Drive workbooks."""
+    global _pending_calendar_sync
+    with _lock:
+        pending = _pending_calendar_sync
+        _pending_calendar_sync = False
+        return pending
 
 
 def download_workbook(filename):

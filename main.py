@@ -27,7 +27,10 @@ from pages.mentor_page import MentorInterviewPage
 from pages.preferences_admin_page import PreferencesAdminPage
 from pages.preferences_page import PreferencesPage
 from pages.signup_page import SignupPage
-from core.google_drive import DriveSyncError, POLL_INTERVAL_SECONDS, sync_workbooks
+from core.google_drive import (
+    DriveSyncError, POLL_INTERVAL_SECONDS, consume_calendar_sync_request,
+    sync_workbooks,
+)
 from ui.AdminSet_up.calendar_service import CalendarError, sync_events_from_workbooks
 from ui.background import FuturisticBackground
 from ui.navigation import AnimatedStack
@@ -45,7 +48,7 @@ class _DriveSyncWorker(QThread):
     def run(self):
         try:
             changed = sync_workbooks()
-            if changed or self._sync_calendar:
+            if changed or consume_calendar_sync_request() or self._sync_calendar:
                 sync_events_from_workbooks()
         except (DriveSyncError, CalendarError) as exc:
             self.completed.emit(False, str(exc))
