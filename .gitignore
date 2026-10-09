@@ -1,3 +1,7 @@
 __pycache__/
 *.py[cod]
 .venv/
+credentials.json
+client_secret*.json
+token.json
+.env

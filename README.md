@@ -2,12 +2,13 @@
 
 CRM capstone: every window is built, styled, animated and navigable, and the
 Applications, Mentor Interview, Interviews and Login pages now run on the real
-Excel workbooks in `data/`. Google Calendar / e-mail (Admin menu) come later.
+Excel workbooks in `data/`. The Admin page can load Google Calendar events and
+send email to the selected event's participants when configured.
 
 ## Run
 
 ```bash
-pip install -r requirements.txt     # PyQt6 + openpyxl
+pip install -r requirements.txt     # PyQt6, openpyxl, and Google API libraries
 python main.py
 ```
 
@@ -26,6 +27,7 @@ ui/
   widgets.py                     glow buttons, glass panels, nav cards, toasts...
   navigation.py                  animated page transitions (slide + fade + light beam)
   base_page.py                   shared page skeleton + staggered reveal
+  AdminSet_up/                    Google Calendar and SMTP integration
 pages/
   login_page.py                  1. Login
   signup_page.py                 Sign Up (opened from the Login card)
@@ -68,6 +70,14 @@ Search matches the start of a name or surname ("as" finds *Asiye Turan*).
 Use an account from `Users.xlsx`. The eye icon in the password field shows or
 hides what you type. Sign up adds a regular `user` account to `Users.xlsx`.
 
+### Admin Calendar and Email
+
+The Admin page's Event Record button loads recent events from Google Calendar.
+Select an event and choose Mail to compose a message to its participants. Setup
+requires a Google Calendar OAuth desktop client and SMTP credentials; see
+[`ui/AdminSet_up/SETUP.md`](ui/AdminSet_up/SETUP.md). OAuth credentials, tokens,
+and SMTP `.env` settings are local-only and excluded from Git.
+
 ## Design notes
 
 - Live background: drifting aurora, scrolling perspective grid, particle
@@ -81,5 +91,5 @@ hides what you type. Sign up adds a regular `user` account to `Users.xlsx`.
 
 ## Not implemented yet (later stages)
 
-Google Drive sync, Google Calendar API and email sending (Admin menu), plus the
-VIT1 / VIT2 comparison filters (those workbooks are not in the project yet).
+Google Drive sync, plus the VIT1 / VIT2 comparison filters (those workbooks are
+not in the project yet).
