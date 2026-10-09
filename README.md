@@ -1,9 +1,9 @@
 # NEXUS CRM — Futuristic PyQt6 Interface
 
-CRM capstone: every window is built, styled, animated and navigable, and the
-Applications, Mentor Interview, Interviews and Login pages now run on the real
-Excel workbooks in `data/`. The Admin page can load Google Calendar events and
-send email to the selected event's participants when configured.
+CRM capstone: every window is built, styled, animated and navigable. Workbook
+data syncs from the shared Google Drive folder. Dated Applications, Mentor and
+Interviews rows are mirrored into Google Calendar; the Admin page loads events
+from that calendar and can send email to selected participants.
 
 ## Run
 
@@ -17,7 +17,8 @@ python main.py
 ```
 main.py                          window controller + navigation logic
 core/
-  data_store.py                  reads the .xlsx files (and saves new sign-ups)
+  data_store.py                  reads the shared workbooks and maps dated rows
+  google_drive.py                Google Drive sync and OAuth credentials
   filters.py                     search / duplicate / category matching
 ui/
   data_table.py                  sortable, scrollable data table + record dialog
@@ -46,7 +47,7 @@ Admins also get Preferences (Admin) → Admin Menu → back.
 Every "Return to Preferences Screen" button sends admins to the Admin
 preferences and everyone else to the regular preferences.
 
-### Data (`data/`)
+### Data (Google Drive)
 
 | File | Used by |
 |------|---------|
@@ -55,9 +56,11 @@ preferences and everyone else to the regular preferences.
 | `Mentor.xlsx` (+ *Mentor Recommendation Options* sheet) | Mentor Interview - search + category dropdown |
 | `Interviews.xlsx` | Interviews - search + Projects Sent / Received |
 
-Edit a workbook, then reopen the page: data is re-read every time a page opens.
-Close Excel before signing up a new user (the file must be writable).
-When packaged as an .exe, keep the `data/` folder next to it.
+All `.xlsx` and `.xlsm` files in the shared Drive folder and subfolders are
+synced. Data pages check for updates when opened; after login, the app polls
+every 60 seconds and refreshes the visible data page. Changes are also mirrored
+to Google Calendar. Sign Up updates the shared `Users.xlsx`. OAuth setup is in
+[`ui/AdminSet_up/SETUP.md`](ui/AdminSet_up/SETUP.md).
 
 ### Tables
 
@@ -67,14 +70,17 @@ Search matches the start of a name or surname ("as" finds *Asiye Turan*).
 
 ### Login
 
-Use an account from `Users.xlsx`. The eye icon in the password field shows or
-hides what you type. Sign up adds a regular `user` account to `Users.xlsx`.
+Use an account from the shared `Users.xlsx`. The eye icon in the password field
+shows or hides what you type. Sign up adds a regular `user` account to it.
 
 ### Admin Calendar and Email
 
-The Admin page's Event Record button loads recent events from Google Calendar.
-Select an event and choose Mail to compose a message to its participants. Setup
-requires a Google Calendar OAuth desktop client and SMTP credentials; see
+Applications submission timestamps, Mentor dates and Interviews project sent /
+received dates create managed Calendar events. Events are updated when workbook
+rows change and removed if their source row is removed. The Admin page loads the
+configured Calendar, allows filtering by event, participant, email or status,
+then opens Mail for the selected attendees. Setup requires Drive and Calendar
+OAuth permissions plus SMTP credentials; see
 [`ui/AdminSet_up/SETUP.md`](ui/AdminSet_up/SETUP.md). OAuth credentials, tokens,
 and SMTP `.env` settings are local-only and excluded from Git.
 
@@ -91,5 +97,5 @@ and SMTP `.env` settings are local-only and excluded from Git.
 
 ## Not implemented yet (later stages)
 
-Google Drive sync, plus the VIT1 / VIT2 comparison filters (those workbooks are
-not in the project yet).
+The VIT1 / VIT2 comparison filters need the corresponding VIT workbooks in the
+shared Drive folder.

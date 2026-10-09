@@ -5,19 +5,37 @@ From the project root, with the project's virtual environment active:
 
   python -m pip install -r requirements.txt
 
-## 2. Google Cloud (Card 6)
+## 2. Google Cloud (Drive and Calendar)
 1. console.cloud.google.com -> create a project (e.g. "CRM_FINAL").
-2. APIs & Services -> Library -> search "Google Calendar API" -> Enable.
-3. APIs & Services -> OAuth consent screen -> External -> fill app name + your email.
-   Under Audience / Test users, add the Gmail account that owns the calendar.
-4. APIs & Services -> Credentials -> Create credentials -> OAuth client ID -> Desktop app.
-5. Download the JSON, rename it `credentials.json`, and put it next to `calendar_service.py`.
+2. Enable both Google Drive API and Google Calendar API.
+3. Set up the OAuth consent screen and add `nexuscrmt@gmail.com` as a test user
+  if the app is in Testing mode.
+4. Create an OAuth client ID of type Desktop app.
+5. Download its JSON as `credentials.json` next to `calendar_service.py`.
    (A file still named `client_secret_....json` in the same folder is also found automatically.)
-  Keep this file private. It is ignored by Git; never commit it or send it in a project archive.
-6. Add 2-3 test events in Google Calendar. Invite a test email address as a guest
-   (or just type an address in the event description).
+  Keep this file private. It is ignored by Git; never commit it or share it.
+6. Copy `.env.example` to `.env`. Set `CRM_GOOGLE_USER=nexuscrmt@gmail.com` to
+  preselect the owner account during OAuth. The account must have access to the
+  Drive folder; it needs edit access to `Users.xlsx` for Sign Up.
+7. The supplied Calendar URL's `/u/2/` identifies an account slot in the browser,
+  not a Calendar ID. The app uses that OAuth account's `primary` calendar. Set
+  `CRM_GOOGLE_CALENDAR_ID` to the actual Calendar ID only if a non-primary
+  calendar should be used.
 
-## 3. Check it from Python
+The first OAuth sign-in requests Drive read/write and Calendar event permissions.
+Because the existing token was created with narrower permissions, remove
+`ui/AdminSet_up/token.json` once and sign in again as the owner account.
+
+Applications submission timestamps, Mentor Date values and Interviews project
+sent/received dates are synced as managed Calendar events. Dates without a time
+become all-day events; application timestamps keep their time. Existing events
+are updated in place; events managed by CRM are removed if the source row is
+deleted. The Admin page then loads events from this same Calendar.
+
+Workbook pages check the folder when opened. After login, the app also polls
+every 60 seconds and syncs Calendar when Drive reports a workbook change.
+
+## 3. Check Calendar access from Python
     cd <folder with calendar_service.py>
     python test_calendar.py
 First run opens a browser to sign in and creates `token.json`.
@@ -44,6 +62,6 @@ The project `.gitignore` excludes OAuth credentials, OAuth tokens, and `.env` fi
 
 ## Notes
 - `pages/admin_page.py` imports `ui.AdminSet_up.calendar_service` and `ui.AdminSet_up.mailer`.
-- Sign-in waits 3 minutes for the browser; if you close it, press Event Record again.
+- OAuth sign-in waits 3 minutes for the browser; if you close it, press Event Record again.
 - The Google libraries are declared in the project's `requirements.txt`.
 - Using the page: press Event Record, click a row, press Mail.

@@ -5,16 +5,21 @@ from PyQt6.QtWidgets import (
     QDialog, QHBoxLayout, QPlainTextEdit, QVBoxLayout,
 )
 
-from ui.AdminSet_up.calendar_service import CalendarError, fetch_events
+from ui.AdminSet_up.calendar_service import CalendarError, fetch_events, sync_events_from_workbooks
 from ui.AdminSet_up.mailer import MailError, is_valid_address, send_emails
 from ui.base_page import BasePage
 from ui.data_table import DataTable, ROW_ROLE
 from ui.theme import ACCENTS, BAD, OK, TEXT, TEXT_FAINT, WARN, page_style
 from ui.widgets import (
-    GlassPanel, NeonButton, NeonLineEdit, PageHeader, StatusChip, make_label,
+    GlassPanel, NeonButton, NeonComboBox, NeonLineEdit, PageHeader, StatusChip, make_label,
 )
 
 EVENT_ROLE = int(Qt.ItemDataRole.UserRole.value) + 20
+
+
+def _load_admin_events():
+    sync_events_from_workbooks()
+    return fetch_events()
 
 
 class _Worker(QThread):
@@ -127,6 +132,16 @@ class AdminPage(BasePage):
         pl.setContentsMargins(18, 16, 18, 12)
         pl.setSpacing(8)
         pl.addWidget(make_label("CALENDAR RECORDS", 12, self.accent, True, 2.6, mono=True))
+        filters = QHBoxLayout()
+        filters.setSpacing(8)
+        self.event_search = NeonLineEdit("Filter by event, participant or email", "search", self.accent)
+        self.event_search.textChanged.connect(lambda _text: self.refresh_events())
+        filters.addWidget(self.event_search, 1)
+        self.event_status = NeonComboBox(self.accent)
+        self.event_status.addItems(["All statuses", "CONFIRMED", "TENTATIVE", "CANCELLED"])
+        self.event_status.currentIndexChanged.connect(lambda _index: self.refresh_events())
+        filters.addWidget(self.event_status)
+        pl.addLayout(filters)
         self.table = DataTable(self.accent)
         self.table.set_data(self.HEADERS, [])
         pl.addWidget(self.table, 1)
@@ -149,6 +164,13 @@ class AdminPage(BasePage):
 
     def on_action(self, name):
         self.nav.toast(f"{name} \u2014 will be connected in a later stage", self.accent)
+
+    def on_enter(self):
+        super().on_enter()
+        self.reload()
+
+    def reload(self):
+        self.on_event_record()
 
     # -- background work ----------------------------------------------------
     def _run(self, fn, on_ok, on_fail):
@@ -175,17 +197,11 @@ class AdminPage(BasePage):
         if self._busy:
             return
         self.status_label.setText("LOADING CALENDAR EVENTS\u2026")
-        self._run(fetch_events, self._events_loaded, self._events_failed)
+        self._run(_load_admin_events, self._events_loaded, self._events_failed)
 
     def _events_loaded(self, events):
         self._events = list(events)
-        rows = [[event["title"], event["participants"], event["date"],
-                 event["time"], event["status"]] for event in self._events]
-        self.table.set_data(self.HEADERS, rows, indices=range(len(rows)))
-        for row in range(self.table.rowCount()):
-            item = self.table.item(row, 0)
-            source_index = item.data(ROW_ROLE)
-            item.setData(EVENT_ROLE, self._events[source_index])
+        self.refresh_events()
 
         if self._events:
             self.status_label.setText(f"{len(self._events)} CALENDAR EVENTS LOADED")
@@ -193,6 +209,35 @@ class AdminPage(BasePage):
         else:
             self.status_label.setText("NO EVENTS FOUND IN THE CALENDAR")
             self.nav.toast("No events found in the calendar", WARN)
+
+    def refresh_events(self):
+        query = self.event_search.text().strip().casefold()
+        selected_status = self.event_status.currentText()
+        shown_indices = []
+        rows = []
+        for index, event in enumerate(self._events):
+            if selected_status != "All statuses" and event["status"].upper() != selected_status:
+                continue
+            searchable = " ".join((
+                event["title"], event["participants"], event["date"], event["time"],
+                event["status"], " ".join(event.get("emails", [])),
+            )).casefold()
+            if query and query not in searchable:
+                continue
+            shown_indices.append(index)
+            rows.append([event["title"], event["participants"], event["date"],
+                         event["time"], event["status"]])
+
+        self.table.set_data(self.HEADERS, rows, indices=shown_indices)
+        for row in range(self.table.rowCount()):
+            item = self.table.item(row, 0)
+            if item is not None:
+                item.setData(EVENT_ROLE, self._events[item.data(ROW_ROLE)])
+
+        if self._events:
+            self.status_label.setText(
+                f"SHOWING {len(shown_indices)} OF {len(self._events)} CALENDAR EVENTS"
+            )
 
     def _events_failed(self, message):
         self.status_label.setText("COULD NOT LOAD CALENDAR EVENTS")

@@ -25,7 +25,7 @@ class MentorInterviewPage(BasePage):
         header = PageHeader(
             "mentor", "Module 02", "Mentor Interview",
             "Review mentor conversations and filter them by recommendation.", self.accent)
-        header.add_chip(StatusChip("EXCEL DATA", self.accent))
+        header.add_chip(StatusChip("ONEDRIVE SYNC", self.accent))
         self.root.addWidget(header)
         self.reveal(header)
 

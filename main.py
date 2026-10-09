@@ -1,4 +1,4 @@
-"""NEXUS CRM - PyQt6 interface backed by local Excel workbooks.
+"""NEXUS CRM - PyQt6 interface backed by shared Google Drive workbooks.
 
 Run:
     pip install -r requirements.txt
@@ -16,8 +16,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from PyQt6.QtCore import QEasingCurve, QPropertyAnimation
-from PyQt6.QtGui import QColor
+from PyQt6.QtCore import QEasingCurve, QPropertyAnimation, QThread, QTimer, pyqtSignal
 from PyQt6.QtWidgets import QApplication, QMainWindow, QVBoxLayout
 
 from pages.admin_page import AdminPage
@@ -28,10 +27,32 @@ from pages.mentor_page import MentorInterviewPage
 from pages.preferences_admin_page import PreferencesAdminPage
 from pages.preferences_page import PreferencesPage
 from pages.signup_page import SignupPage
+from core.google_drive import DriveSyncError, POLL_INTERVAL_SECONDS, sync_workbooks
+from ui.AdminSet_up.calendar_service import CalendarError, sync_events_from_workbooks
 from ui.background import FuturisticBackground
 from ui.navigation import AnimatedStack
 from ui.theme import GLOBAL_STYLE, ui_font
 from ui.widgets import Toast
+
+
+class _DriveSyncWorker(QThread):
+    completed = pyqtSignal(bool, str)
+
+    def __init__(self, parent=None, sync_calendar=False):
+        super().__init__(parent)
+        self._sync_calendar = sync_calendar
+
+    def run(self):
+        try:
+            changed = sync_workbooks()
+            if changed or self._sync_calendar:
+                sync_events_from_workbooks()
+        except (DriveSyncError, CalendarError) as exc:
+            self.completed.emit(False, str(exc))
+        except Exception as exc:
+            self.completed.emit(False, f"Unexpected sync error: {exc}")
+        else:
+            self.completed.emit(changed, "")
 
 
 class CRMWindow(QMainWindow):
@@ -57,6 +78,7 @@ class CRMWindow(QMainWindow):
         self.is_admin = False
         self._current_key = None
         self._closing = False
+        self._sync_worker = None
 
         self.bg = FuturisticBackground()
         self.setCentralWidget(self.bg)
@@ -80,6 +102,10 @@ class CRMWindow(QMainWindow):
         }
         for key, page in self.pages.items():
             self.stack.add_page(key, page)
+
+        self._sync_timer = QTimer(self)
+        self._sync_timer.setInterval(POLL_INTERVAL_SECONDS * 1000)
+        self._sync_timer.timeout.connect(self._poll_drive)
 
         self.go("login", animate=False)
 
@@ -107,8 +133,11 @@ class CRMWindow(QMainWindow):
         self.username = username
         self.is_admin = is_admin
         self.go_home()
+        self._sync_timer.start()
+        self._poll_drive(sync_calendar=True)
 
     def sign_out(self):
+        self._sync_timer.stop()
         self.username = ""
         self.is_admin = False
         self.pages["login"].reset()
@@ -122,6 +151,26 @@ class CRMWindow(QMainWindow):
 
     def toast(self, text, accent):
         self.toast_widget.popup(text, accent)
+
+    def _poll_drive(self, sync_calendar=False):
+        if self._sync_worker is not None and self._sync_worker.isRunning():
+            return
+        current_page = self.pages.get(self._current_key) if self._current_key else None
+        if getattr(current_page, "_busy", False):
+            return
+        worker = _DriveSyncWorker(self, sync_calendar=sync_calendar)
+        worker.completed.connect(self._drive_sync_completed)
+        worker.finished.connect(worker.deleteLater)
+        self._sync_worker = worker
+        worker.start()
+
+    def _drive_sync_completed(self, changed, error):
+        self._sync_worker = None
+        if error:
+            self.toast(error, self.pages["applications"].accent)
+            return
+        if changed and self._current_key in {"applications", "mentor", "interviews", "admin"}:
+            self.pages[self._current_key].reload()
 
     # -- window life-cycle --------------------------------------------------
     def fade_in_window(self):
