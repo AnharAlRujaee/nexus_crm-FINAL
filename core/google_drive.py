@@ -3,11 +3,22 @@
 import io
 import os
 import re
+import sys
 import threading
 from pathlib import Path
 
 DEFAULT_FOLDER_ID = "1Z3sSNKIbw4WxjESPou584I3MNWYjMSc1"
-BASE_DIR = Path(__file__).resolve().parent.parent / "ui" / "AdminSet_up"
+SOURCE_CONFIG_DIR = Path(__file__).resolve().parent.parent / "ui" / "AdminSet_up"
+if getattr(sys, "frozen", False):
+    if sys.platform == "win32":
+        USER_CONFIG_ROOT = Path(os.environ.get("LOCALAPPDATA") or Path.home() / "AppData" / "Local")
+    elif sys.platform == "darwin":
+        USER_CONFIG_ROOT = Path.home() / "Library" / "Application Support"
+    else:
+        USER_CONFIG_ROOT = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
+    BASE_DIR = USER_CONFIG_ROOT / "NexusCRM"
+else:
+    BASE_DIR = SOURCE_CONFIG_DIR
 CREDENTIALS_FILE = Path(os.environ.get("CRM_GOOGLE_CREDENTIALS", BASE_DIR / "credentials.json"))
 TOKEN_FILE = Path(os.environ.get("CRM_GOOGLE_TOKEN", BASE_DIR / "token.json"))
 CLIENT_SECRET_PATTERN = re.compile(r"client_secret.*\.json")
