@@ -63,7 +63,6 @@ class InterviewsPage(BasePage):
         self.reveal(panel)
 
         self.add_row([self.back_button()], stretch_end=True)
-        self.reload()
 
     # ------------------------------------------------------------------
     def on_enter(self):

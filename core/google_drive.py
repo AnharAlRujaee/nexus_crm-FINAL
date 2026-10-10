@@ -116,8 +116,8 @@ def _drive_service():
         from googleapiclient.discovery import build
 
         return build("drive", "v3", credentials=get_google_credentials(), cache_discovery=False)
-    except GoogleAccessError:
-        raise
+    except GoogleAccessError as exc:
+        raise DriveSyncError(str(exc)) from exc
     except ImportError as exc:
         raise DriveSyncError("Google Drive libraries are missing - install requirements.txt") from exc
     except Exception as exc:
