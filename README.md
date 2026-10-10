@@ -7,10 +7,42 @@ from that calendar and can send email to selected participants.
 
 ## Run
 
+### Run from source
+
+Use Python 3.10 or newer, install the dependencies, then start the app:
+
 ```bash
-pip install -r requirements.txt     # PyQt6, openpyxl, and Google API libraries
+python -m pip install -r requirements.txt
 python main.py
 ```
+
+### Build desktop applications
+
+Push this repository to GitHub, then open **Actions** and run **Build desktop
+apps** (or push to `main`/`master`). Download the artifact for the recipient's
+platform and architecture:
+
+| Artifact | Run |
+|---|---|
+| `NexusCRM-Windows-x64` | Unzip, then open `NexusCRM\NexusCRM.exe` |
+| `NexusCRM-macOS-AppleSilicon` | Unzip, then open `NexusCRM.app` on an M-series Mac |
+| `NexusCRM-macOS-Intel` | Unzip, then open `NexusCRM.app` on an Intel Mac |
+
+To build locally, run `build_windows.bat` on Windows or `bash build_macos.sh` on
+macOS. PyInstaller builds for the operating system it is running on. The
+Windows ZIP contains the whole app folder; share the ZIP, not only the `.exe`.
+The macOS ZIP contains the `.app` bundle. Unsigned macOS builds may require
+Control-clicking the app and choosing **Open** the first time; smooth public
+distribution requires Apple code signing and notarization.
+
+Each laptop still needs Google Drive authorization and access to the shared CRM
+folder. Put that user's Google Desktop OAuth client file at
+`%LOCALAPPDATA%\NexusCRM\credentials.json` on Windows, or
+`~/Library/Application Support/NexusCRM/credentials.json` on macOS. The first
+sign-in creates `token.json` beside it. Do not put credentials, tokens, or
+email passwords in the build or commit them to Git. See
+[`ui/AdminSet_up/SETUP.md`](ui/AdminSet_up/SETUP.md) for Google API and account
+access requirements.
 
 ## Project layout
 
@@ -66,9 +98,13 @@ Sign Up updates the shared `Users.xlsx`, so the signed-in Google account needs
 edit permission for that file. To use another folder, set
 `CRM_GOOGLE_DRIVE_FOLDER_ID` in `ui/AdminSet_up/.env`.
 
-Drive and Calendar access use Google OAuth, not the account password. Install
-the OAuth desktop-client JSON as `ui/AdminSet_up/credentials.json`, enable both
-Google Drive API and Google Calendar API, and authorize `nexuscrmt@gmail.com`
+Drive and Calendar access use Google OAuth, not the account password. For source
+runs, install the OAuth desktop-client JSON as
+`ui/AdminSet_up/credentials.json`; for packaged apps, use
+`%LOCALAPPDATA%\NexusCRM\credentials.json` on Windows or
+`~/Library/Application Support/NexusCRM/credentials.json` on macOS. Enable both
+Google Drive API and
+Google Calendar API, and authorize `nexuscrmt@gmail.com`
 (the sign-in hint is configurable with `CRM_GOOGLE_USER`). Never put an account
 password in source code or commit OAuth credentials/token files. See
 [`ui/AdminSet_up/SETUP.md`](ui/AdminSet_up/SETUP.md) for the full setup steps.
