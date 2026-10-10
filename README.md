@@ -46,6 +46,9 @@ access requirements.
 
 ## Project layout
 
+The current application and deployment diagram is [UML.jpg](UML.jpg); its
+editable vector source is [UML.svg](UML.svg).
+
 ```
 main.py                          window controller + navigation logic
 core/

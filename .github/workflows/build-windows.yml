@@ -36,14 +36,16 @@ jobs:
           python -m PyInstaller --noconfirm --clean --onedir --windowed
           --name NexusCRM --specpath build --workpath build/work --distpath dist
           --collect-all googleapiclient --collect-all google_auth_oauthlib
-          --collect-all google.auth main.py
+          --collect-all google.auth --collect-all google.oauth2
+          --hidden-import google_auth_httplib2 --collect-all httplib2 main.py
       - name: Package macOS app
         if: runner.os == 'macOS'
         run: >-
           python -m PyInstaller --noconfirm --clean --onedir --windowed
           --name NexusCRM --specpath build --workpath build/work --distpath dist
           --collect-all googleapiclient --collect-all google_auth_oauthlib
-          --collect-all google.auth main.py
+          --collect-all google.auth --collect-all google.oauth2
+          --hidden-import google_auth_httplib2 --collect-all httplib2 main.py
       - name: Archive Windows app
         if: runner.os == 'Windows'
         shell: pwsh
