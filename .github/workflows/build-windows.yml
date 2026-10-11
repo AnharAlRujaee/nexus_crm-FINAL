@@ -21,8 +21,8 @@ jobs:
             target: macOS-AppleSilicon
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
       - name: Install dependencies
@@ -53,7 +53,7 @@ jobs:
       - name: Archive macOS app
         if: runner.os == 'macOS'
         run: ditto -c -k --sequesterRsrc --keepParent dist/NexusCRM.app NexusCRM-${{ matrix.target }}.zip
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: NexusCRM-${{ matrix.target }}
           path: NexusCRM-${{ matrix.target }}.zip
