@@ -169,3 +169,20 @@ previous VIT membership on application records, and lists people found in only
 one cohort. The current sample history has 5 VIT1 and 4 VIT2 entries. If the
 sheet is absent, the app falls back to `Mentor` rows with explicit VIT1/VIT2
 values in `VIT Group` and warns when those cohorts are unavailable.
+
+## Screenshots of the program
+
+<img width="1440" height="900" alt="01_NexusCRM_Login" src="https://github.com/user-attachments/assets/1cd14d59-b9d3-4f76-88c8-ebcc5876f9fd" />
+
+<img width="1440" height="900" alt="02_NexusCRM_Admin_Dashboard" src="https://github.com/user-attachments/assets/28780324-b66f-4407-a349-e6e1f2c6ec89" />
+
+<img width="1440" height="900" alt="03_NexusCRM_Database_Overview" src="https://github.com/user-attachments/assets/42358207-f3c6-4f59-a723-2fb709eb5810" />
+
+<img width="1440" height="900" alt="04_NexusCRM_Application_Pipeline" src="https://github.com/user-attachments/assets/ab980156-3900-4deb-9893-c2f2f4f5a427" />
+
+<img width="1440" height="900" alt="05_NexusCRM_Code_Development" src="https://github.com/user-attachments/assets/1d2f31c7-d970-40b3-bf81-2011594f4432" />
+
+
+
+
+
